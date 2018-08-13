@@ -1,0 +1,3 @@
+#!/bin/sh
+# for some reason, valgrind sometimes hangs on my machine
+ps -ef | lines-filter test valgrind | lines-reject lines-filter | tabular-select 2 | xargs kill -9

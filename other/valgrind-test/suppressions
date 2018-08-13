@@ -1,0 +1,907 @@
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:GC_push_all_eager
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_init
+   fun:scm_storage_prehistory
+   fun:scm_i_init_guile
+   fun:scm_i_init_thread_for_guile
+   fun:with_guile_and_parent
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Value8
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_push_all_eager
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_init
+   fun:scm_storage_prehistory
+   fun:scm_i_init_guile
+   fun:scm_i_init_thread_for_guile
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_push_all_eager
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_init
+   fun:scm_storage_prehistory
+   fun:scm_i_init_guile
+   fun:scm_i_init_thread_for_guile
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Value8
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_push_all_eager
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_init
+   fun:scm_storage_prehistory
+   fun:scm_i_init_guile
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_push_all_eager
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_init
+   fun:scm_storage_prehistory
+   fun:scm_i_init_guile
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:GC_push_all_eager
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_init
+   fun:scm_storage_prehistory
+   fun:scm_i_init_guile
+   fun:scm_i_init_thread_for_guile
+   fun:with_guile_and_parent
+   fun:GC_call_with_stack_base
+   fun:scm_with_guile
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Value8
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_push_all_eager
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_init
+   fun:scm_storage_prehistory
+   fun:scm_i_init_guile
+   fun:scm_i_init_thread_for_guile
+   fun:with_guile_and_parent
+   fun:GC_call_with_stack_base
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_push_all_eager
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_init
+   fun:scm_storage_prehistory
+   fun:scm_i_init_guile
+   fun:scm_i_init_thread_for_guile
+   fun:with_guile_and_parent
+   fun:GC_call_with_stack_base
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Value8
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_push_all_eager
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_init
+   fun:scm_storage_prehistory
+   fun:scm_i_init_guile
+   fun:scm_i_init_thread_for_guile
+   fun:with_guile_and_parent
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_push_all_eager
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_init
+   fun:scm_storage_prehistory
+   fun:scm_i_init_guile
+   fun:scm_i_init_thread_for_guile
+   fun:with_guile_and_parent
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:libunistring_freea
+   fun:libunistring_mem_iconveha
+   fun:u32_conv_from_encoding
+   fun:scm_from_stringn
+   fun:scm_init_random
+   fun:scm_i_init_guile
+   fun:scm_i_init_thread_for_guile
+   fun:with_guile_and_parent
+   fun:GC_call_with_stack_base
+   fun:scm_with_guile
+   fun:scm_boot_guile
+   fun:main
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Value8
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_push_all_eager
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_generic_malloc_many
+   fun:vm_regular_engine
+   fun:scm_call_n
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_push_all_eager
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_generic_malloc_many
+   fun:vm_regular_engine
+   fun:scm_call_n
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Value8
+   fun:GC_base
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_push_all_eager
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_generic_malloc_many
+   fun:vm_regular_engine
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:GC_base
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_push_all_eager
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_generic_malloc_many
+   fun:vm_regular_engine
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Value8
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_base
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_push_all_eager
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_generic_malloc_many
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_base
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_push_all_eager
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_generic_malloc_many
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Value8
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_push_all_eager
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_generic_malloc_many
+   fun:vm_regular_engine
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_push_all_eager
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_generic_malloc_many
+   fun:vm_regular_engine
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:mark_weak_key_table
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_generic_malloc_many
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Value8
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_generic_malloc_many
+   fun:vm_regular_engine
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_generic_malloc_many
+   fun:vm_regular_engine
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:thread_mark
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_generic_malloc_many
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Value8
+   fun:GC_mark_and_push
+   fun:thread_mark
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:GC_mark_and_push
+   fun:thread_mark
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Value8
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_mark_and_push
+   fun:thread_mark
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Value8
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_mark_and_push
+   fun:thread_mark
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_mark_and_push
+   fun:thread_mark
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Value8
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_size
+   fun:mark_weak_key_table
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_size
+   fun:mark_weak_key_table
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Value8
+   fun:mark_weak_key_table
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_generic_malloc_many
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:mark_weak_value_table
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_generic_malloc_many
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_generic_malloc_many
+   fun:GC_malloc_kind
+   fun:scm_i_alloc_struct
+   fun:scm_allocate_struct
+   fun:vm_regular_engine
+   fun:scm_call_n
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_generic_malloc_many
+   fun:GC_malloc_kind
+   fun:scm_c_make_vector
+   fun:make_hash_table.isra.0
+   fun:vm_regular_engine
+   fun:scm_call_n
+   fun:scm_primitive_load_path
+   fun:vm_regular_engine
+   fun:scm_call_n
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_generic_malloc
+   fun:GC_malloc_kind_global
+   fun:scm_c_make_vector
+   fun:scm_i_rehash
+   fun:scm_hash_fn_create_handle_x
+   fun:scm_hash_fn_set_x
+   fun:vm_regular_engine
+   fun:scm_call_n
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:scm_i_register_weak_gc_callback
+   fun:scm_make_weak_key_hash_table
+   fun:vm_regular_engine
+   fun:scm_call_n
+   fun:scm_primitive_load_path
+   fun:vm_regular_engine
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Value8
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_push_all_eager
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_push_all_eager
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:scm_i_register_weak_gc_callback
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Value8
+   fun:thread_mark
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:thread_mark
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Value8
+   obj:/usr/lib/libgc.so.1.0.3
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_mark_and_push
+   fun:thread_mark
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_generic_malloc
+   fun:allocate_entries
+   fun:make_weak_table
+   fun:scm_make_weak_key_hash_table
+   fun:vm_regular_engine
+   fun:scm_call_n
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Value8
+   fun:mark_weak_key_table
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:mark_weak_key_table
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Value8
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_generic_malloc_many
+   fun:GC_malloc_kind
+   fun:scm_i_alloc_struct
+   fun:scm_c_make_structv
+   fun:scm_make_struct
+   fun:vm_regular_engine
+   fun:scm_call_n
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Value8
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+   obj:*
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_generic_malloc_many
+   fun:vm_regular_engine
+   fun:scm_call_n
+   fun:scm_primitive_load_path
+   fun:vm_regular_engine
+   fun:scm_call_n
+   fun:scm_primitive_load_path
+   fun:vm_regular_engine
+   fun:scm_call_n
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   fun:GC_base
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_push_all_eager
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_push_all_eager
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_generic_malloc_many
+   fun:GC_malloc_kind
+   fun:scm_i_alloc_struct
+   fun:scm_allocate_struct
+   fun:vm_regular_engine
+   fun:scm_call_n
+   fun:scm_primitive_load_path
+   fun:vm_regular_engine
+   fun:scm_call_n
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:resize_set
+   fun:weak_set_add_x
+   fun:scm_c_weak_set_add_x
+   fun:scm_i_str2symbol
+   fun:vm_regular_engine
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_generic_malloc_many
+   fun:GC_malloc_kind
+   fun:scm_char_set_to_list
+   fun:vm_regular_engine
+   fun:scm_call_n
+   fun:scm_primitive_load_path
+   fun:vm_regular_engine
+   fun:scm_call_n
+   fun:scm_primitive_load_path
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_generic_malloc
+   fun:GC_malloc_kind_global
+   fun:scm_c_make_vector
+   fun:scm_vector
+   fun:vm_regular_engine
+   fun:scm_call_n
+   fun:scm_primitive_load_path
+   fun:vm_regular_engine
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_generic_malloc_many
+   fun:GC_malloc_kind
+   fun:scm_char_set_to_list
+   fun:vm_regular_engine
+   fun:scm_call_n
+   fun:scm_primitive_load_path
+   fun:vm_regular_engine
+}
+{
+   <insert_a_suppression_name_here>
+   Memcheck:Cond
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   obj:/usr/lib/libgc.so.1.0.3
+   fun:GC_gcollect
+   fun:scm_gc
+   fun:vm_regular_engine
+   fun:scm_call_n
+   fun:scm_primitive_eval
+   fun:scm_eval
+   fun:scm_shell
+   fun:invoke_main_func
+   fun:c_body
+}

@@ -1,0 +1,8 @@
+#!/usr/bin/guile
+!#
+
+(import (sph) (sph test))
+
+(test-execute-modules-by-prefix #:settings
+  (test-settings-default-custom path-search "source/scheme" reporter-name (q compact))
+  (q (test module sph storage dg)))

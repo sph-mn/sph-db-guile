@@ -1,0 +1,18 @@
+#!/bin/sh
+
+optimisation=3
+warnings="-Wunused-label -Wunused-value -Wunused-variable"
+gcc_options="-Wfatal-errors $warnings -std=c11 -O$optimisation $(guile-config link)"
+
+dir=temp
+file="$dir/libguile-sph-dg.so"
+source=source/c-precompiled/main.c
+
+compile_libguile_sph_dg() {
+  gcc -Wl,--version-script=other/export -shared -fpic -lsph-dg "$source" -o "$file" $gcc_options
+}
+
+mkdir -p temp &&
+compile_libguile_sph_dg &&
+chmod -R 755 "$dir" &&
+chmod 644 "$file"

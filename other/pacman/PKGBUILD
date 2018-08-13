@@ -1,0 +1,24 @@
+_name=sph-dg-guile
+pkgname=sph-dg-guile-git
+pkgver=1
+pkgrel=2
+pkgdesc="guile scheme bindings for the key/value/relations/graph database sph-dg"
+arch=(any)
+license=(gpl3+)
+makedepends=(git gcc)
+depends=(sph-dg)
+provides=(sph-dg-guile)
+url="git://github.com/sph-mn/sph-dg-guile#branch=stable"
+source=("$url")
+md5sums=(SKIP)
+
+pkgver() {
+  cd "$_name" &&
+  git rev-list --count HEAD
+}
+
+package() {
+  cd "$_name" &&
+  ./exe/compile-c &&
+  ./exe/install "$pkgdir"
+}

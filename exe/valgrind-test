@@ -1,0 +1,2 @@
+#!/bin/sh
+valgrind --leak-check=yes --show-leak-kinds=definite --tool=memcheck --suppressions=other/valgrind-test/suppressions $* ./exe/test

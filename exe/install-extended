@@ -2,8 +2,7 @@
 !#
 
 ; depends on sph-lib. can be called with --help
-
 (import (sph install))
 
-(install-cli-guile ("/usr/lib" "temp/libguile-sph-dg.so")
+(install-cli-guile ("/usr/lib" "temp/libguile-sph-db.so")
   (path-lib-scheme "source/scheme/sph" "source/scheme/test"))

@@ -1,7 +1,0 @@
-{
-  global:
-    dg_guile_init;
-    dg_txn_abort;
-    dg_txn_commit;
-  local: *;
-};

@@ -18,7 +18,7 @@ the following documentation is completely outdated and for a predecessor of sph-
 * install dependencies
 
 ## download
-clone the code repository or download an archive.
+clone the code repository or download an archive
 
 * [github](https://github.com/sph-mn/sph-db-guile/archive/master.zip)
 
@@ -31,13 +31,21 @@ alternatives:
 * ./exe/compile-c
 * ./exe/install [path-prefix]
 
+
+# internals
+the main extensions of this binding are:
+* free all selections and additionally allocated data automatically when the transaction ends. this is done using a generic selection type and a thread local variable with a linked-list of active selections
+* convert from scheme types to field types where appropriate
+* create exceptions for status_t errors
+* accessors for structs like env
+
+# ---old---
+
 # getting started
 to load the bindings
 ```
 (import (sph db))
 ```
-
-the following examples assume that the module ``(sph)`` has also been imported.
 
 ## create and use a database
 

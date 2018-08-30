@@ -1,0 +1,5 @@
+{
+  global:
+    db_guile_init;
+  local: *;
+};

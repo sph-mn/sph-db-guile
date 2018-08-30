@@ -1,14 +1,14 @@
-_name=sph-dg-guile
-pkgname=sph-dg-guile-git
+_name=sph-db-guile
+pkgname=sph-db-guile-git
 pkgver=1
-pkgrel=2
-pkgdesc="guile scheme bindings for the key/value/relations/graph database sph-dg"
+pkgrel=1
+pkgdesc="guile scheme bindings for the database sph-db"
 arch=(any)
 license=(gpl3+)
 makedepends=(git gcc)
-depends=(sph-dg)
-provides=(sph-dg-guile)
-url="git://github.com/sph-mn/sph-dg-guile#branch=stable"
+depends=(sph-db)
+provides=(sph-db-guile)
+url="git://github.com/sph-mn/sph-db-guile"
 source=("$url")
 md5sums=(SKIP)
 

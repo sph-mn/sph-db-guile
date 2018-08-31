@@ -23,7 +23,11 @@ separate file because it is easier to start from the exported features */
         (scm_from_utf8_string(description)))), \
       (scm_cons((scm_from_latin1_symbol("c-routine")), \
         (scm_from_latin1_symbol(__FUNCTION__)))))))
+#define status_to_scm_return(result) return ((status_to_scm(result)))
+#define status_to_scm(result) \
+  (status_is_success ? result : status_to_scm_error(status))
 scm_t_bits scm_type_env;
 scm_t_bits scm_type_txn;
 scm_t_bits scm_type_selection;
 SCM scm_rnrs_raise;
+#include "./selections.c"

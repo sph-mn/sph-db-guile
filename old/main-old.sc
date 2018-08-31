@@ -1,19 +1,3 @@
-(define (scm-db-txn-abort scm-txn) (SCM SCM)
-  (active-selections-free)
-  (mdb-txn-abort (scm->txn scm-txn))
-  (SCM-SET-SMOB-DATA scm-txn 0)
-  (return SCM-UNSPECIFIED))
-
-(define (scm-db-txn-commit scm-txn) (SCM SCM)
-  "note that mdb-txn-commit frees cursors - active-selections-free uses mdb-cursor-close.
-  if active-selections-free is called after mdb-txn-commit a double free occurs"
-  status-declare
-  (active-selections-free)
-  (db-mdb-status-require! (mdb-txn-commit (scm->txn scm-txn)))
-  (SCM-SET-SMOB-DATA scm-txn 0)
-  (label exit
-    (status->scm-return SCM-UNSPECIFIED)))
-
 (define
   (scm-db-relation-ensure
     scm-txn scm-left scm-right scm-label scm-ordinal-generator scm-ordinal-generator-state)
@@ -51,25 +35,6 @@
     (db-ids-destroy right)
     (db-ids-destroy label)
     (status->scm-return SCM-BOOL-T)))
-
-(define (scm-db-statistics scm-txn) (SCM SCM)
-  status-declare
-  (define result SCM SCM-EOL)
-  (define stat db-statistics-t)
-  (status-require! (db-statistics (scm->txn scm-txn) (address-of stat)))
-  (pre-let
-    ( (result-add key struct-key)
-      (set result
-        (scm-acons
-          (scm-from-latin1-symbol key)
-          (scm-from-mdb-stat (address-of (struct-get stat struct-key))) result)))
-    (result-add "id->data" id->data)
-    (result-add "data-intern->id" data-intern->id)
-    (result-add "data-extern->extern" data-extern->extern)
-    (result-add "left->right" left->right)
-    (result-add "right->left" right->left) (result-add "label->left" label->left))
-  (label exit
-    (status->scm-return result)))
 
 (define (scm-db-delete scm-txn scm-ids) (SCM SCM SCM)
   status-declare
@@ -125,16 +90,6 @@
     (free (struct-get data data))
     (status->scm-return SCM-BOOL-T)))
 
-(define (scm-db-status-description id-status id-group) (SCM SCM SCM)
-  status-declare
-  (struct-set status
-    id (scm->int id-status)
-    group (scm->int id-group))
-  (scm-from-latin1-string (db-status-description status)))
-
-(define (scm-db-status-group-id->name a) (SCM SCM)
-  (scm-from-latin1-symbol (db-status-group-id->name (scm->int a))))
-
 (define (scm-db-intern-data->id scm-txn scm-data scm-every?) (SCM SCM SCM SCM)
   status-declare
   (define every? boolean (optional-every? scm-every?))
@@ -166,40 +121,24 @@
     (db-data-list-destroy data)
     (status->scm-return result)))
 
-(define (scm-db-node-virtual? id-scm) (SCM SCM)
-  (scm-from-bool (db-node-virtual? (scm->db-id id-scm))))
+(define (scm-db-record-virtual? id-scm) (SCM SCM)
+  (scm-from-bool (db-record-virtual? (scm->db-id id-scm))))
 
-(define (scm-db-node-virtual-id->data id-scm) (SCM SCM)
-  (db-id->scm (db-node-virtual-id->data (scm->db-id id-scm))))
+(define (scm-db-record-virtual-id->data id-scm) (SCM SCM)
+  (db-id->scm (db-record-virtual-id->data (scm->db-id id-scm))))
 
-(define (scm-db-node-virtual-data->id data-scm) (SCM SCM)
-  (db-id->scm (db-node-virtual-data->id (scm->db-id data-scm))))
+(define (scm-db-record-virtual-data->id data-scm) (SCM SCM)
+  (db-id->scm (db-record-virtual-data->id (scm->db-id data-scm))))
 
 (define-scm-db-index-recreate intern)
 (define-scm-db-index-recreate extern)
 
-(define (scm-db-node-select scm-txn scm-types scm-offset) (SCM SCM SCM SCM)
-  (if (scm-is-null scm-types) (return (selection->scm 0)))
+(define (scm-db-record-read scm-selection scm-count) (SCM SCM SCM)
   status-declare
-  (define offset b32 (optional-offset scm-offset))
-  (define state db-node-selection-t* (malloc (sizeof db-node-selection-t)))
-  (if (not state) (status-set-id-goto db-status-id-memory))
-  (define types b8 (optional-types scm-types))
-  (status-require! (db-node-select (scm->txn scm-txn) types offset state))
-  (label exit
-    (if (and status-failure? (not (status-id-is? db-status-id-no-more-data)))
-      (begin
-        (free state)
-        (return (status->scm-error status))))
-    (active-selections-add! state db-guile-selection-type-node)
-    (return (selection->scm state))))
-
-(define (scm-db-node-read scm-selection scm-count) (SCM SCM SCM)
-  status-declare
-  (define state db-node-selection-t* (scm->selection scm-selection node))
+  (define state db-record-selection-t* (scm->selection scm-selection record))
   (define count b32 (optional-count scm-count))
   (define records db-data-records-t* 0)
-  (db-status-require-read! (db-node-selection count (address-of records)))
+  (db-status-require-read! (db-record-selection count (address-of records)))
   db-status-success-if-no-more-data
   (define result SCM (db-data-relations->scm records db-data-record->scm))
   (label exit
@@ -277,7 +216,6 @@
     (status->scm-return result)))
 
 (define (scm-db-txn? a) (SCM SCM) (return (scm-from-bool (SCM-SMOB-PREDICATE scm-type-txn a))))
-(define (scm-db-txn-active? a) (SCM SCM) (return (scm-from-bool (SCM-SMOB-DATA a))))
 
 (define (db-guile-init) b0
   "map and register guile bindings"
@@ -304,7 +242,7 @@
   (scm-c-module-define m "db-type-bit-id" (scm-from-uint8 db-type-bit-id))
   (scm-c-module-define m "db-type-bit-intern" (scm-from-uint8 db-type-bit-intern))
   (scm-c-module-define m "db-type-bit-extern" (scm-from-uint8 db-type-bit-extern))
-  (scm-c-module-define m "db-type-bit-node-virtual" (scm-from-uint8 db-type-bit-node-virtual))
+  (scm-c-module-define m "db-type-bit-record-virtual" (scm-from-uint8 db-type-bit-record-virtual))
   scm-c-define-procedure-c-init
   (scm-c-define-procedure-c "db-exit" 0 0 0 scm-db-exit "completely deinitialises the database")
   (scm-c-define-procedure-c "db-open" 1 1 0 scm-db-open "path [options] ->")
@@ -314,10 +252,6 @@
   (scm-c-define-procedure-c "db-relation?" 1 0 0 scm-db-relation? "integer -> boolean")
   (scm-c-define-procedure-c "db-openialised?" 0 0 0 scm-db-openialised? "-> boolean")
   (scm-c-define-procedure-c "db-root" 0 0 0 scm-db-root "-> string")
-  (scm-c-define-procedure-c "db-txn-create-read" 0 0 0 scm-db-txn-create-read "-> db-txn")
-  (scm-c-define-procedure-c "db-txn-create-write" 0 0 0 scm-db-txn-create-write "-> db-txn")
-  (scm-c-define-procedure-c "db-txn-abort" 1 0 0 scm-db-txn-abort "db-txn ->")
-  (scm-c-define-procedure-c "db-txn-commit" 1 0 0 scm-db-txn-commit "db-txn -> unspecified")
   (scm-c-define-procedure-c "db-id-create" 1 1 0 scm-db-id-create "db-txn [count] -> (integer ...)")
   (scm-c-define-procedure-c "db-identify" 2 0 0 scm-db-identify "db-txn (integer:id ...) -> list")
   (scm-c-define-procedure-c "db-exists?" 2 0 0 scm-db-exists? "db-txn (integer:id ...) -> list")
@@ -334,11 +268,11 @@
     "db-intern-id->data" 2 2 0 scm-db-intern-id->data "db-txn list [boolean:every?] -> (any ...)")
   (scm-c-define-procedure-c
     "db-intern-data->id" 2 1 0 scm-db-intern-data->id "db-txn list [boolean:every?] -> (integer ...)")
-  (scm-c-define-procedure-c "db-node-virtual?" 1 0 0 scm-db-node-virtual? "id -> boolean")
+  (scm-c-define-procedure-c "db-record-virtual?" 1 0 0 scm-db-record-virtual? "id -> boolean")
   (scm-c-define-procedure-c
-    "db-node-virtual-data->id" 1 0 0 scm-db-node-virtual-data->id "integer -> id")
+    "db-record-virtual-data->id" 1 0 0 scm-db-record-virtual-data->id "integer -> id")
   (scm-c-define-procedure-c
-    "db-node-virtual-id->data" 1 0 0 scm-db-node-virtual-id->data "id -> integer")
+    "db-record-virtual-id->data" 1 0 0 scm-db-record-virtual-id->data "id -> integer")
   (scm-c-define-procedure-c "db-delete" 2 0 0 scm-db-delete "db-txn list -> unspecified")
   (scm-c-define-procedure-c
     "db-extern-create" 1 2 0 scm-db-extern-create "db-txn [integer:count any:data] -> list")
@@ -356,15 +290,15 @@
   (scm-c-define-procedure-c
     "db-index-recreate-relation" 0 0 0 scm-db-index-recreate-relation "-> true")
   (scm-c-define-procedure-c
-    "db-node-select"
+    "db-record-select"
     1
     2
     0
-    scm-db-node-select
+    scm-db-record-select
     "db-txn [types offset] -> db-selection
     types is zero or a combination of bits from db-type-bit-* variables, for example (logior db-type-bit-intern db-type-bit-extern)")
   (scm-c-define-procedure-c
-    "db-node-read" 1 1 0 scm-db-node-read "db-selection [count] -> (vector ...)")
+    "db-record-read" 1 1 0 scm-db-record-read "db-selection [count] -> (vector ...)")
   (scm-c-define-procedure-c
     "db-relation-select"
     1

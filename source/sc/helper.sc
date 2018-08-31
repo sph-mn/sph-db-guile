@@ -27,10 +27,16 @@
     (scm-list-3
       (scm-from-latin1-symbol name)
       (scm-cons (scm-from-latin1-symbol "description") (scm-from-utf8-string description))
-      (scm-cons (scm-from-latin1-symbol "c-routine") (scm-from-latin1-symbol __FUNCTION__)))))
+      (scm-cons (scm-from-latin1-symbol "c-routine") (scm-from-latin1-symbol __FUNCTION__))))
+  (status->scm-return result) (return (status->scm result))
+  (status->scm result)
+  (if* status-is-success result
+    (status->scm-error status)))
 
 (declare
   scm-type-env scm-t-bits
   scm-type-txn scm-t-bits
   scm-type-selection scm-t-bits
   scm-rnrs-raise SCM)
+
+(pre-include "./selections.c")

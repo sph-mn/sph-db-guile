@@ -81,6 +81,105 @@ SCM scm_db_close(SCM scm_env) {
   free(env);
   return (SCM_UNSPECIFIED);
 };
+/** -> ((key . value) ...) */
+SCM scm_from_mdb_stat(MDB_stat a) {
+  SCM b;
+  b = SCM_EOL;
+  b = scm_acons(
+    (scm_from_latin1_symbol("ms-entries")), (scm_from_uint((a.ms_entries))), b);
+  b = scm_acons(
+    (scm_from_latin1_symbol("ms-psize")), (scm_from_uint((a.ms_psize))), b);
+  b = scm_acons(
+    (scm_from_latin1_symbol("ms-depth")), (scm_from_uint((a.ms_depth))), b);
+  b = scm_acons((scm_from_latin1_symbol("ms-branch-pages")),
+    (scm_from_uint((a.ms_branch_pages))),
+    b);
+  b = scm_acons((scm_from_latin1_symbol("ms-leaf-pages")),
+    (scm_from_uint((a.ms_leaf_pages))),
+    b);
+  b = scm_acons((scm_from_latin1_symbol("ms-overflow-pages")),
+    (scm_from_uint((a.ms_overflow_pages))),
+    b);
+  return (b);
+};
+SCM scm_db_statistics(SCM scm_txn) {
+  status_declare;
+  SCM b;
+  db_statistics_t a;
+  status_require((db_statistics((*(scm_to_db_txn(scm_txn))), (&a))));
+  b = SCM_EOL;
+  b = scm_acons(
+    (scm_from_latin1_symbol("system")), (scm_from_mdb_stat((a.system))), b);
+  b = scm_acons(
+    (scm_from_latin1_symbol("records")), (scm_from_mdb_stat((a.records))), b);
+  b = scm_acons((scm_from_latin1_symbol("relation-lr")),
+    (scm_from_mdb_stat((a.relation_lr))),
+    b);
+  b = scm_acons((scm_from_latin1_symbol("relation-rl")),
+    (scm_from_mdb_stat((a.relation_rl))),
+    b);
+  b = scm_acons((scm_from_latin1_symbol("relation-ll")),
+    (scm_from_mdb_stat((a.relation_ll))),
+    b);
+exit:
+  status_to_scm_return(b);
+};
+SCM scm_db_txn_abort(SCM scm_txn) {
+  db_guile_selections_free();
+  db_txn_t* txn;
+  txn = scm_to_txn(scm_txn);
+  db_txn_abort((&txn));
+  free(txn);
+  SCM_SET_SMOB_DATA(scm_txn, 0);
+  return (SCM_UNSPECIFIED);
+};
+/** note that commit frees cursors. db-guile-selections-free closes cursors.
+  if db-guile-selections-free is called after db-txn-commit a double free occurs
+*/
+SCM scm_db_txn_commit(SCM scm_txn) {
+  status_declare;
+  db_guile_selections_free();
+  db_txn_t* txn;
+  txn = scm_to_txn(scm_txn);
+  status_require((db_txn_commit((&txn))));
+  free(txn);
+  SCM_SET_SMOB_DATA(scm_txn, 0);
+exit:
+  status_to_scm_return(SCM_UNSPECIFIED);
+};
+SCM scm_db_txn_active_p(SCM a) {
+  return ((scm_from_bool((SCM_SMOB_DATA(a)))));
+};
+SCM scm_db_txn_begin() {
+  status_declare;
+  db_txn_t* txn;
+  txn = 0;
+  db_calloc(txn, 1, (sizeof(db_txn_t)));
+  status_require((db_txn_begin(txn)));
+exit:
+  if (status_is_success) {
+    return ((db_txn_to_scm(txn)));
+  } else {
+    free(txn);
+    status_to_scm_error(status);
+    return (SCM_UNSPECIFIED);
+  };
+};
+SCM scm_db_txn_write_begin() {
+  status_declare;
+  db_txn_t* txn;
+  txn = 0;
+  db_calloc(txn, 1, (sizeof(db_txn_t)));
+  status_require((db_txn_begin_write(txn)));
+exit:
+  if (status_is_success) {
+    return ((db_txn_to_scm(txn)));
+  } else {
+    free(txn);
+    status_to_scm_error(status);
+    return (SCM_UNSPECIFIED);
+  };
+};
 /** prepare scm valuaes and register guile bindings */
 void db_guile_init() {
   scm_type_txn = scm_make_smob_type("db-txn", 0);
@@ -104,4 +203,15 @@ void db_guile_init() {
     "db-env-maxkeysize", 1, 0, 0, scm_db_env_maxkeysize, "");
   scm_c_define_procedure_c("db-env-root", 1, 0, 0, scm_db_env_root, "");
   scm_c_define_procedure_c("db-env-format", 1, 0, 0, scm_db_env_format, "");
+  scm_c_define_procedure_c("db-statistics", 1, 0, 0, scm_db_statistics, "");
+  scm_c_define_procedure_c(
+    "db-txn-begin", 0, 0, 0, scm_db_txn_begin, ("-> db-txn"));
+  scm_c_define_procedure_c(
+    "db-txn-write-begin", 0, 0, 0, scm_db_txn_write_begin, ("-> db-txn"));
+  scm_c_define_procedure_c(
+    "db-txn-abort", 1, 0, 0, scm_db_txn_abort, ("db-txn -> unspecified"));
+  scm_c_define_procedure_c(
+    "db-txn-commit", 1, 0, 0, scm_db_txn_commit, ("db-txn -> unspecified"));
+  scm_c_define_procedure_c(
+    "db-txn-active?", 1, 0, 0, scm_db_txn_active_p, ("db-txn -> boolean"));
 };

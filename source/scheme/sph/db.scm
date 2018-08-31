@@ -14,6 +14,12 @@
     db-relation-ordinal
     db-relation-right
     db-selection?
+    db-statistics
+    db-txn-abort
+    db-txn-active?
+    db-txn-begin
+    db-txn-begin-write
+    db-txn-commit
     db-txn?
     db-use
     db-use-p)

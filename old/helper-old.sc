@@ -71,14 +71,6 @@
           max
           (if* (scm-is-integer scm-ordinal-max) (scm->uint scm-ordinal-max)
             0)))))
-  (scm-c-error name description)
-  (scm-call-1
-    scm-rnrs-raise
-    (scm-list-3
-      (scm-from-latin1-symbol name)
-      (scm-cons (scm-from-latin1-symbol "description") (scm-from-utf8-string description))
-      (scm-cons (scm-from-latin1-symbol "c-routine") (scm-from-latin1-symbol __FUNCTION__))))
-  (status->scm-error a) (scm-c-error (db-status-name a) (db-status-description a))
   (status->scm result)
   (if* status-success? result
     (status->scm-error status))
@@ -160,7 +152,6 @@
   scm-type-env scm-t-bits
   db-scm-write SCM
   db-scm-read SCM
-  scm-rnrs-raise SCM
   scm-symbol-label SCM
   scm-symbol-left SCM
   scm-symbol-right SCM

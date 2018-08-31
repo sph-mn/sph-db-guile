@@ -9,7 +9,7 @@
     (set
       result (scm-assoc-ref scm-options (scm-from-latin1-symbol name))
       result
-      (if* (scm-is-pair scm-temp) (scm-tail scm-temp)
+      (if* (scm-is-pair result) (scm-tail result)
         SCM-UNDEFINED)))
   ; scm types
   (scm->db-txn a) (convert-type (SCM-SMOB-DATA a) db-txn-t*)
@@ -18,4 +18,19 @@
   (db-env->scm pointer) (scm-new-smob scm-type-env (convert-type pointer scm-t-bits))
   (scm->db-selection a selection-name)
   (convert-type (SCM-SMOB-DATA a) (pre-concat db_ selection-name _selection-t*))
-  (db-selection->scm pointer) (scm-new-smob scm-type-selection (convert-type pointer scm-t-bits)))
+  (db-selection->scm pointer) (scm-new-smob scm-type-selection (convert-type pointer scm-t-bits))
+  ; error handling
+  (status->scm-error a) (scm-c-error (db-status-name a) (db-status-description a))
+  (scm-c-error name description)
+  (scm-call-1
+    scm-rnrs-raise
+    (scm-list-3
+      (scm-from-latin1-symbol name)
+      (scm-cons (scm-from-latin1-symbol "description") (scm-from-utf8-string description))
+      (scm-cons (scm-from-latin1-symbol "c-routine") (scm-from-latin1-symbol __FUNCTION__)))))
+
+(declare
+  scm-type-env scm-t-bits
+  scm-type-txn scm-t-bits
+  scm-type-selection scm-t-bits
+  scm-rnrs-raise SCM)

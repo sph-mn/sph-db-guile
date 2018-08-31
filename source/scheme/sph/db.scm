@@ -1,6 +1,11 @@
 (library (sph db)
   (export
     db-close
+    db-env-format
+    db-env-maxkeysize
+    db-env-open?
+    db-env-root
+    db-env?
     db-open
     db-relation-field-names
     db-relation-label
@@ -8,6 +13,8 @@
     db-relation-left
     db-relation-ordinal
     db-relation-right
+    db-selection?
+    db-txn?
     db-use
     db-use-p)
   (import
@@ -43,7 +50,7 @@
     (db-relation-right (q right)) (db-relation-label (q label)) (db-relation-ordinal (q ordinal)))
 
   (define (db-use-p root options c) "string ((key . value) ...) procedure:{db-env -> any} -> any"
-    (let (env (db-open root option)) (exception-always (db-close env) (c env))))
+    (let (env (db-open root options)) (exception-always (db-close env) (c env))))
 
   (define-syntax-rules db-use
     ( (root ((option-name option-value) ...) c)

@@ -4,4 +4,3 @@
     otherwise like printf */
 #define debug_log(format, ...) \
   fprintf(stdout, "%s:%d " format "\n", __func__, __LINE__, __VA_ARGS__)
-;

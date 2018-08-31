@@ -30,4 +30,25 @@ scm_t_bits scm_type_env;
 scm_t_bits scm_type_txn;
 scm_t_bits scm_type_selection;
 SCM scm_rnrs_raise;
+/** -> ((key . value) ...) */
+SCM scm_from_mdb_stat(MDB_stat a) {
+  SCM b;
+  b = SCM_EOL;
+  b = scm_acons(
+    (scm_from_latin1_symbol("ms-entries")), (scm_from_uint((a.ms_entries))), b);
+  b = scm_acons(
+    (scm_from_latin1_symbol("ms-psize")), (scm_from_uint((a.ms_psize))), b);
+  b = scm_acons(
+    (scm_from_latin1_symbol("ms-depth")), (scm_from_uint((a.ms_depth))), b);
+  b = scm_acons((scm_from_latin1_symbol("ms-branch-pages")),
+    (scm_from_uint((a.ms_branch_pages))),
+    b);
+  b = scm_acons((scm_from_latin1_symbol("ms-leaf-pages")),
+    (scm_from_uint((a.ms_leaf_pages))),
+    b);
+  b = scm_acons((scm_from_latin1_symbol("ms-overflow-pages")),
+    (scm_from_uint((a.ms_overflow_pages))),
+    b);
+  return (b);
+};
 #include "./selections.c"

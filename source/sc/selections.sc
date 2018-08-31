@@ -2,8 +2,8 @@
   "generic db-selection type with the option to carry data to be freed when the selection isnt needed anymore")
 
 (pre-define
-  db-guile-selection-first mi-list-first
-  db-guile-selection-rest mi-list-rest
+  db-guile-selections-first mi-list-first
+  db-guile-selections-rest mi-list-rest
   mi-list-name-prefix db-guile-selections
   mi-list-element-t db-guile-selection-t)
 
@@ -52,12 +52,13 @@
 (define (db-guile-selection-register db-selection selection-type)
   (void void* db-guile-selection-type-t)
   "add a new db-guile-selection object to db-guile-active-selections"
+  status-declare
   (declare
     a db-guile-selections-t*
     b db-guile-selection-t)
   (sc-comment "add db-guile-selection to linked-list")
   (set
-    b.data db-selection
+    b.selection db-selection
     b.selection-type selection-type
     a (db-guile-selections-add db-guile-active-selections b))
   (if a (set db-guile-active-selections a)

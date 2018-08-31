@@ -117,7 +117,7 @@
   (define* (db-relation-select-read txn #:optional left right label retrieve ordinal offset count)
     (db-relation-read (db-relation-select txn left right label retrieve ordinal offset) count))
 
-  (define (db-txn-call-read proc)
+(define (db-txn-call-read proc)
     "procedure:{db-txn -> any:result} -> any:result
      call proc with a new read transaction.
      the transaction is automatically finished on return with db-txn-abort"

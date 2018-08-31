@@ -1,7 +1,9 @@
 (sc-comment
   "sph-db-guile basically registers scheme procedures that when called execute specific c-functions that manage calls to sph-db")
 
-(pre-include "libguile.h" "sph-db.h" "./foreign/sph/one.c" "./foreign/sph/guile.c" "./helper.c")
+(pre-include
+  "libguile.h" "sph-db.h" "sph-db-extra.h" "./foreign/sph/one.c" "./foreign/sph/guile.c" "./helper.c")
+
 (define (scm-db-env? a) (SCM SCM) (return (scm-from-bool (SCM_SMOB_PREDICATE scm-type-env a))))
 (define (scm-db-txn? a) (SCM SCM) (return (scm-from-bool (SCM_SMOB_PREDICATE scm-type-txn a))))
 (define (scm-db-env-open? a) (SCM SCM) (return (scm-from-bool (: (scm->db-env a) is-open))))
@@ -58,19 +60,6 @@
   (free env)
   (return SCM-UNSPECIFIED))
 
-(define (scm-from-mdb-stat a) (SCM MDB-stat)
-  "-> ((key . value) ...)"
-  (declare b SCM)
-  (set
-    b SCM-EOL
-    b (scm-acons (scm-from-latin1-symbol "ms-entries") (scm-from-uint a.ms-entries) b)
-    b (scm-acons (scm-from-latin1-symbol "ms-psize") (scm-from-uint a.ms-psize) b)
-    b (scm-acons (scm-from-latin1-symbol "ms-depth") (scm-from-uint a.ms-depth) b)
-    b (scm-acons (scm-from-latin1-symbol "ms-branch-pages") (scm-from-uint a.ms-branch-pages) b)
-    b (scm-acons (scm-from-latin1-symbol "ms-leaf-pages") (scm-from-uint a.ms-leaf-pages) b)
-    b (scm-acons (scm-from-latin1-symbol "ms-overflow-pages") (scm-from-uint a.ms-overflow-pages) b))
-  (return b))
-
 (define (scm-db-statistics scm-txn) (SCM SCM)
   status-declare
   (declare
@@ -90,8 +79,8 @@
 (define (scm-db-txn-abort scm-txn) (SCM SCM)
   (db-guile-selections-free)
   (declare txn db-txn-t*)
-  (set txn (scm->txn scm-txn))
-  (db-txn-abort &txn)
+  (set txn (scm->db-txn scm-txn))
+  (db-txn-abort txn)
   (free txn)
   (SCM-SET-SMOB-DATA scm-txn 0)
   (return SCM-UNSPECIFIED))
@@ -102,8 +91,8 @@
   status-declare
   (db-guile-selections-free)
   (declare txn db-txn-t*)
-  (set txn (scm->txn scm-txn))
-  (status-require (db-txn-commit &txn))
+  (set txn (scm->db-txn scm-txn))
+  (status-require (db-txn-commit txn))
   (free txn)
   (SCM-SET-SMOB-DATA scm-txn 0)
   (label exit
@@ -111,11 +100,12 @@
 
 (define (scm-db-txn-active? a) (SCM SCM) (return (scm-from-bool (SCM-SMOB-DATA a))))
 
-(define (scm-db-txn-begin) SCM
+(define (scm-db-txn-begin scm-env) (SCM SCM)
   status-declare
   (declare txn db-txn-t*)
   (set txn 0)
   (db-calloc txn 1 (sizeof db-txn-t))
+  (set txn:env (scm->db-env scm-env))
   (status-require (db-txn-begin txn))
   (label exit
     (if status-is-success (return (db-txn->scm txn))
@@ -124,12 +114,13 @@
         (status->scm-error status)
         (return SCM-UNSPECIFIED)))))
 
-(define (scm-db-txn-write-begin) SCM
+(define (scm-db-txn-write-begin scm-env) (SCM SCM)
   status-declare
   (declare txn db-txn-t*)
   (set txn 0)
   (db-calloc txn 1 (sizeof db-txn-t))
-  (status-require (db-txn-begin-write txn))
+  (set txn:env (scm->db-env scm-env))
+  (status-require (db-txn-write-begin txn))
   (label exit
     (if status-is-success (return (db-txn->scm txn))
       (begin
@@ -139,29 +130,27 @@
 
 (define (scm-db-status-description id-status id-group) (SCM SCM SCM)
   status-declare
-  (struct-set status
-    id (scm->int id-status)
-    group (scm->int id-group))
+  (status-set-both (scm->int id-group) (scm->int id-status))
   (scm-from-latin1-string (db-status-description status)))
 
 (define (scm-db-status-group-id->name a) (SCM SCM)
   (scm-from-latin1-symbol (db-status-group-id->name (scm->int a))))
 
-(define (scm-db-record-select scm-txn scm-types scm-offset) (SCM SCM SCM SCM)
-  (if (scm-is-null scm-types) (return (selection->scm 0)))
+#;(define (scm-db-record-select scm-txn scm-types scm-offset) (SCM SCM SCM SCM)
+  (if (scm-is-null scm-types) (return (db-selection->scm 0)))
   status-declare
   (define offset b32 (optional-offset scm-offset))
   (define state db-record-selection-t* (malloc (sizeof db-record-selection-t)))
   (if (not state) (status-set-id-goto db-status-id-memory))
   (define types b8 (optional-types scm-types))
-  (status-require! (db-record-select (scm->txn scm-txn) types offset state))
+  (status-require! (db-record-select (scm->db-txn scm-txn) types offset state))
   (label exit
     (if (and status-failure? (not (status-id-is? db-status-id-no-more-data)))
       (begin
         (free state)
         (return (status->scm-error status))))
     (active-selections-add! state db-guile-selection-type-record)
-    (return (selection->scm state))))
+    (return (db-selection->scm state))))
 
 (define (db-guile-init) void
   "prepare scm valuaes and register guile bindings"
@@ -183,8 +172,13 @@
   (scm-c-define-procedure-c "db-env-root" 1 0 0 scm-db-env-root "")
   (scm-c-define-procedure-c "db-env-format" 1 0 0 scm-db-env-format "")
   (scm-c-define-procedure-c "db-statistics" 1 0 0 scm-db-statistics "")
-  (scm-c-define-procedure-c "db-txn-begin" 0 0 0 scm-db-txn-begin "-> db-txn")
-  (scm-c-define-procedure-c "db-txn-write-begin" 0 0 0 scm-db-txn-write-begin "-> db-txn")
+  (scm-c-define-procedure-c "db-txn-begin" 1 0 0 scm-db-txn-begin "-> db-txn")
+  (scm-c-define-procedure-c "db-txn-write-begin" 1 0 0 scm-db-txn-write-begin "-> db-txn")
   (scm-c-define-procedure-c "db-txn-abort" 1 0 0 scm-db-txn-abort "db-txn -> unspecified")
   (scm-c-define-procedure-c "db-txn-commit" 1 0 0 scm-db-txn-commit "db-txn -> unspecified")
-  (scm-c-define-procedure-c "db-txn-active?" 1 0 0 scm-db-txn-active? "db-txn -> boolean"))
+  (scm-c-define-procedure-c "db-txn-active?" 1 0 0 scm-db-txn-active? "db-txn -> boolean")
+  (scm-c-define-procedure-c
+    "db-status-description"
+    2 0 0 scm-db-status-description "integer:id-status integer:id-group -> string")
+  (scm-c-define-procedure-c
+    "db-status-group-id->name" 1 0 0 scm-db-status-group-id->name "integer -> symbol"))

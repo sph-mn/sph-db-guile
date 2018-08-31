@@ -15,11 +15,15 @@
     db-relation-right
     db-selection?
     db-statistics
+    db-status-description
+    db-status-group-id->name
     db-txn-abort
     db-txn-active?
     db-txn-begin
-    db-txn-begin-write
+    db-txn-call-read
+    db-txn-call-write
     db-txn-commit
+    db-txn-write-begin
     db-txn?
     db-use
     db-use-p)
@@ -61,4 +65,19 @@
   (define-syntax-rules db-use
     ( (root ((option-name option-value) ...) c)
       (db-use-p root (list (pair (quote option-name) option-value) ...) c))
-    ((root c) (db-use-p root (list) c))))
+    ((root c) (db-use-p root (list) c)))
+
+  (define (db-txn-call-read env c)
+    "db-env procedure:{db-txn -> any:result} -> any:result
+     call c with a new read transaction.
+     the transaction is automatically finished on return with db-txn-abort"
+    (let (txn (db-txn-begin env)) (exception-always (db-txn-abort txn) (c txn))))
+
+  (define (db-txn-call-write env c)
+    "db-env procedure:{db-txn -> any:result} -> any:result
+     call c with a new write transaction.
+     the transaction is automatically committed on return if not already aborted or committed.
+     the transaction is aborted when an unhandled exception occurs"
+    (let (txn (db-txn-write-begin env))
+      (exception-intercept-if (c txn) (db-txn-abort txn)
+        (if (db-txn-active? txn) (db-txn-commit txn))))))

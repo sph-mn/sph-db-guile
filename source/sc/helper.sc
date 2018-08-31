@@ -39,4 +39,17 @@
   scm-type-selection scm-t-bits
   scm-rnrs-raise SCM)
 
+(define (scm-from-mdb-stat a) (SCM MDB-stat)
+  "-> ((key . value) ...)"
+  (declare b SCM)
+  (set
+    b SCM-EOL
+    b (scm-acons (scm-from-latin1-symbol "ms-entries") (scm-from-uint a.ms-entries) b)
+    b (scm-acons (scm-from-latin1-symbol "ms-psize") (scm-from-uint a.ms-psize) b)
+    b (scm-acons (scm-from-latin1-symbol "ms-depth") (scm-from-uint a.ms-depth) b)
+    b (scm-acons (scm-from-latin1-symbol "ms-branch-pages") (scm-from-uint a.ms-branch-pages) b)
+    b (scm-acons (scm-from-latin1-symbol "ms-leaf-pages") (scm-from-uint a.ms-leaf-pages) b)
+    b (scm-acons (scm-from-latin1-symbol "ms-overflow-pages") (scm-from-uint a.ms-overflow-pages) b))
+  (return b))
+
 (pre-include "./selections.c")

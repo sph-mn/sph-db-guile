@@ -2,6 +2,7 @@
  * specific c-functions that manage calls to sph-db */
 #include <libguile.h>
 #include <sph-db.h>
+#include <sph-db-extra.h>
 #include "./foreign/sph/one.c"
 #include "./foreign/sph/guile.c"
 #include "./helper.c"
@@ -81,27 +82,6 @@ SCM scm_db_close(SCM scm_env) {
   free(env);
   return (SCM_UNSPECIFIED);
 };
-/** -> ((key . value) ...) */
-SCM scm_from_mdb_stat(MDB_stat a) {
-  SCM b;
-  b = SCM_EOL;
-  b = scm_acons(
-    (scm_from_latin1_symbol("ms-entries")), (scm_from_uint((a.ms_entries))), b);
-  b = scm_acons(
-    (scm_from_latin1_symbol("ms-psize")), (scm_from_uint((a.ms_psize))), b);
-  b = scm_acons(
-    (scm_from_latin1_symbol("ms-depth")), (scm_from_uint((a.ms_depth))), b);
-  b = scm_acons((scm_from_latin1_symbol("ms-branch-pages")),
-    (scm_from_uint((a.ms_branch_pages))),
-    b);
-  b = scm_acons((scm_from_latin1_symbol("ms-leaf-pages")),
-    (scm_from_uint((a.ms_leaf_pages))),
-    b);
-  b = scm_acons((scm_from_latin1_symbol("ms-overflow-pages")),
-    (scm_from_uint((a.ms_overflow_pages))),
-    b);
-  return (b);
-};
 SCM scm_db_statistics(SCM scm_txn) {
   status_declare;
   SCM b;
@@ -127,8 +107,8 @@ exit:
 SCM scm_db_txn_abort(SCM scm_txn) {
   db_guile_selections_free();
   db_txn_t* txn;
-  txn = scm_to_txn(scm_txn);
-  db_txn_abort((&txn));
+  txn = scm_to_db_txn(scm_txn);
+  db_txn_abort(txn);
   free(txn);
   SCM_SET_SMOB_DATA(scm_txn, 0);
   return (SCM_UNSPECIFIED);
@@ -140,8 +120,8 @@ SCM scm_db_txn_commit(SCM scm_txn) {
   status_declare;
   db_guile_selections_free();
   db_txn_t* txn;
-  txn = scm_to_txn(scm_txn);
-  status_require((db_txn_commit((&txn))));
+  txn = scm_to_db_txn(scm_txn);
+  status_require((db_txn_commit(txn)));
   free(txn);
   SCM_SET_SMOB_DATA(scm_txn, 0);
 exit:
@@ -150,11 +130,12 @@ exit:
 SCM scm_db_txn_active_p(SCM a) {
   return ((scm_from_bool((SCM_SMOB_DATA(a)))));
 };
-SCM scm_db_txn_begin() {
+SCM scm_db_txn_begin(SCM scm_env) {
   status_declare;
   db_txn_t* txn;
   txn = 0;
   db_calloc(txn, 1, (sizeof(db_txn_t)));
+  txn->env = scm_to_db_env(scm_env);
   status_require((db_txn_begin(txn)));
 exit:
   if (status_is_success) {
@@ -165,12 +146,13 @@ exit:
     return (SCM_UNSPECIFIED);
   };
 };
-SCM scm_db_txn_write_begin() {
+SCM scm_db_txn_write_begin(SCM scm_env) {
   status_declare;
   db_txn_t* txn;
   txn = 0;
   db_calloc(txn, 1, (sizeof(db_txn_t)));
-  status_require((db_txn_begin_write(txn)));
+  txn->env = scm_to_db_env(scm_env);
+  status_require((db_txn_write_begin(txn)));
 exit:
   if (status_is_success) {
     return ((db_txn_to_scm(txn)));
@@ -179,6 +161,14 @@ exit:
     status_to_scm_error(status);
     return (SCM_UNSPECIFIED);
   };
+};
+SCM scm_db_status_description(SCM id_status, SCM id_group) {
+  status_declare;
+  status_set_both((scm_to_int(id_group)), (scm_to_int(id_status)));
+  scm_from_latin1_string((db_status_description(status)));
+};
+SCM scm_db_status_group_id_to_name(SCM a) {
+  scm_from_latin1_symbol((db_status_group_id_to_name((scm_to_int(a)))));
 };
 /** prepare scm valuaes and register guile bindings */
 void db_guile_init() {
@@ -205,13 +195,25 @@ void db_guile_init() {
   scm_c_define_procedure_c("db-env-format", 1, 0, 0, scm_db_env_format, "");
   scm_c_define_procedure_c("db-statistics", 1, 0, 0, scm_db_statistics, "");
   scm_c_define_procedure_c(
-    "db-txn-begin", 0, 0, 0, scm_db_txn_begin, ("-> db-txn"));
+    "db-txn-begin", 1, 0, 0, scm_db_txn_begin, ("-> db-txn"));
   scm_c_define_procedure_c(
-    "db-txn-write-begin", 0, 0, 0, scm_db_txn_write_begin, ("-> db-txn"));
+    "db-txn-write-begin", 1, 0, 0, scm_db_txn_write_begin, ("-> db-txn"));
   scm_c_define_procedure_c(
     "db-txn-abort", 1, 0, 0, scm_db_txn_abort, ("db-txn -> unspecified"));
   scm_c_define_procedure_c(
     "db-txn-commit", 1, 0, 0, scm_db_txn_commit, ("db-txn -> unspecified"));
   scm_c_define_procedure_c(
     "db-txn-active?", 1, 0, 0, scm_db_txn_active_p, ("db-txn -> boolean"));
+  scm_c_define_procedure_c("db-status-description",
+    2,
+    0,
+    0,
+    scm_db_status_description,
+    ("integer:id-status integer:id-group -> string"));
+  scm_c_define_procedure_c(("db-status-group-id->name"),
+    1,
+    0,
+    0,
+    scm_db_status_group_id_to_name,
+    ("integer -> symbol"));
 };

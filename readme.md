@@ -1,8 +1,6 @@
 guile scheme bindings for the database [sph-db](https://github.com/sph-mn/sph-db).
 
-*wip for sph-db v2018*
-
-the following documentation is completely outdated and for a predecessor of sph-db.
+2018-08: wip for new sph-db version
 
 # dependencies
 * run-time
@@ -100,6 +98,8 @@ the main extensions of this binding are:
 gpl3+
 
 # ---old---
+
+the rest of this documentation is completely outdated and for a predecessor of sph-db
 
 # create type
 # create index

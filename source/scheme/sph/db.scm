@@ -62,9 +62,7 @@
   (define (db-use-p root options c) "string ((key . value) ...) procedure:{db-env -> any} -> any"
     (let (env (db-open root options)) (exception-always (db-close env) (c env))))
 
-  (define-syntax-rules db-use
-    ( (root ((option-name option-value) ...) c)
-      (db-use-p root (list (pair (quote option-name) option-value) ...) c))
+  (define-syntax-rules db-use ((root options c) (db-use-p root options c))
     ((root c) (db-use-p root (list) c)))
 
   (define (db-txn-call-read env c)

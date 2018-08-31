@@ -22,7 +22,7 @@ clone the code repository or download an archive
 
 * [github](https://github.com/sph-mn/sph-db-guile/archive/master.zip)
 
-alternatives:
+alternative sources:
 * git: "https://github.com/sph-mn/sph-db-guile"
 * git: "git://sph.mn/sph-db-guile"
 
@@ -31,76 +31,95 @@ alternatives:
 * ./exe/compile-c
 * ./exe/install [path-prefix]
 
+installed will be
+* a shared library ``{path-prefix}/usr/lib/libguile-sph-db.so``
+* scheme modules under ``{path-prefix}/usr/share/guile/site/sph`` and ``{path-prefix}/usr/share/guile/site/test/sph``
+
+# usage
+to load the bindings
+```
+(import (sph db))
+```
+
+## select a database
+```
+(db-use "/tmp/example"
+  (lambda (env)
+    ; commands using the database ...
+  ))
+```
+
+the database is created if it does not exist.
+alternatively there is ``(db-open "/tmp/example")`` and ``(db-close env)``.
+
+## create relations
+
+relations are between records specified by their ids and they are not checked for existence.
+a relation label is optional, the default is zero.
+```
+(db-txn-call-write (l (txn)
+  (db-relation-ensure txn (list 1 2 3) (list 4 5))))
+```
+
+with label - labels are also record ids:
+```
+(db-txn-call-write (l (txn)
+  (db-relation-ensure txn (list 1 2 3) (list 4 5) (list 6))))
+```
+
+# db-open options
+```
+db-open :: path list:options
+db-use :: path list:options:((option-name . value) ...) procedure
+```
+
+defaults are set by sph-db.
+
+|name|type|description|
+| --- | --- | --- |
+|file-permissions|integer||
+|is-read-only|boolean||
+|maximum-reader-count|integer||
+|filesystem-has-ordered-writes|boolean||
+|env-open-flags|integer|lmdb environment options|
+
+note: selections are bound to threads, the lmdb option MDB-NOTLS would probably not work
 
 # internals
 the main extensions of this binding are:
 * free all selections and additionally allocated data automatically when the transaction ends. this is done using a generic selection type and a thread local variable with a linked-list of active selections
 * convert from scheme types to field types where appropriate
 * create exceptions for status_t errors
-* accessors for structs like env
+* accessors for some structs like env
+
+# notes
+* there can only be one transaction per thread. this matches lmdbs default behaviour
+* fast binary live-backups are supported with the mdb_dump, mdb_load or mdb_copy applications from lmdb. dumps are only compatible with the same database format and version
+
+# license
+gpl3+
 
 # ---old---
 
-# getting started
-to load the bindings
-```
-(import (sph db))
-```
-
-## create and use a database
-
-```
-(dg-use "/example-path"
-  (lambda (env)
-  ; commands using the database ...
-  ))
-```
-
-the database is created if it does not exist.
-alternatively there is ``(dg-open "/tmp/example")`` and ``(dg-close env)``.
+# create type
+# create index
+# create nodes
+# read nodes
+# use indices
+# virtual records
+# error handling
 
 ## store strings, bytevectors or integers (or any "write" serialisable scheme object)
+the result of ``db-intern-ensure`` are the new element identifiers (integers) in reverse order. when data is already stored then the existing element identifier is returned instead. data is stored typed and types are converted automatically. the same data represented using different types does not resolve to the same id. for example, a bytevector that stores the bytes of an utf-8 string will not be the same as the corresponding string. all serialisable scheme datums can be stored and retrieved. non-serialisable scheme objects like compiled lambdas will not be retrievable as such. for these cases the code to create the objects should be stored as a string instead. internally, some types are stored in native binary formats. strings are always utf-8, should another encoding be required then a bytevector must be used.
 
-```
-(import (rnrs bytevectors))
-
-(dg-txn-call-write
-  (l (txn)
-    (dg-intern-ensure txn (list "test"))
-    (dg-intern-ensure txn (list "test2" -3 (make-bytevector 4 1)))))
-```
-
-the result of ``dg-intern-ensure`` are the new element identifiers (integers) in reverse order. when data is already stored then the existing element identifier is returned instead. data is stored typed and types are converted automatically. the same data represented using different types does not resolve to the same id. for example, a bytevector that stores the bytes of an utf-8 string will not be the same as the corresponding string. all serialisable scheme datums can be stored and retrieved. non-serialisable scheme objects like compiled lambdas will not be retrievable as such. for these cases the code to create the objects should be stored as a string instead. internally, some types are stored in native binary formats. strings are always utf-8, should another encoding be required then a bytevector must be used.
-
-there are "implicit transaction" variants for most create/read/delete procedures with names that end with an asterisk in module ``(sph db implicit-txn)``, for example:
-
-```
-(dg-intern-ensure* (list "test"))
-```
-
-unsigned integers not bigger than dg-size-octets-id can be used cheaply in relations with the type "intern-small".
+unsigned integers not bigger than db-size-octets-id can be used cheaply in relations with the type "intern-small".
 intern-small nodes are virtual nodes that only exist in relations and are particularly well suited for numbers, for example timestamps.
 
 ```
 (let*
-  ( (node-id (dg-intern-small-data->id 1506209583))
-    (timestamp (dg-intern-small-id->data node-id)))
+  ( (node-id (db-intern-small-data->id 1506209583))
+    (timestamp (db-intern-small-id->data node-id)))
   #t)
-```
-
-## create relations
-
-relations are between nodes and the nodes are not checked for existence.
-specifying a relation label is optional and the default label is dg-null.
-```
-(dg-txn-call-write (l (txn)
-  (dg-relation-ensure txn (list 1 2 3) (list 4 5))))
-```
-
-with a label - labels are also node ids:
-```
-(dg-txn-call-write (l (txn)
-  (dg-relation-ensure txn (list 1 2 3) (list 4 5) (list 6))))
 ```
 
 ## read relations
@@ -108,40 +127,35 @@ with a label - labels are also node ids:
 (define left-ids (list 1 2 3))
 (define right-ids (list 4 5 6))
 (define label-ids (list 7))
-(dg-txn-call-write
+(db-txn-call-write
   (l (txn)
     (let
       ( (selection
-          (dg-relation-select txn left-ids right-ids label-ids)))
-      (dg-relation-read selection))))
+          (db-relation-select txn left-ids right-ids label-ids)))
+      (db-relation-read selection))))
 ```
 
 gets all relations that match any id of every filter left/right/label-ids ("or"). the empty list matches nothing and leads to an empty result. false disables a filter.
 the result is a list of vectors, or node identifiers if retrieve-only-field is not false and a symbol.
-the vector element order is left/right/label/ordinal but it is safer to use ``dg-relation-record-left`` and related procedures for access.
-there is also ``dg-relation-select-read`` and an implicit-txn variant:
+the vector element order is left/right/label/ordinal but it is safer to use ``db-relation-record-left`` and related procedures for access.
+there is also ``db-relation-select-read`` and an implicit-txn variant:
 ```
-(dg-relation-select-read* txn left-ids right-ids label-ids)
-```
-
-dg-relation-select has more parameters:
-```
-dg-relation-select :: txn left right label retrieve-only-field ordinal:((min . integer) (max . integer)) offset
+(db-relation-select-read* txn left-ids right-ids label-ids)
 ```
 
-dg-relation-delete is similar, but does not need a select:
+db-relation-select has more parameters:
 ```
-dg-relation-delete :: txn left right label ordinal:((min . integer) (max . integer))
+db-relation-select :: txn left right label retrieve-only-field ordinal:((min . integer) (max . integer)) offset
+```
+
+db-relation-delete is similar, but does not need a select:
+```
+db-relation-delete :: txn left right label ordinal:((min . integer) (max . integer))
 ```
 
 ## translate internally stored data to identifiers
 ```
-(dg-intern-data->id txn (list "test"))
-```
-
-## translate identifiers to internally stored data
-```
-(dg-intern-id->data txn (list 1 2))
+(db-intern-data->id txn (list "test"))
 ```
 
 ## create and write to a file
@@ -152,8 +166,8 @@ the "1" stands for the number of new files to create
 (system* "mkdir" "-p" files-directory)
 (define (id->path id) (string-append files-directory (number->string id 32)))
 
-(dg-use "/tmp/example-path"
-  (let ((identifiers (dg-extern-create* 1)))
+(db-use "/tmp/example-path"
+  (let ((identifiers (db-extern-create* 1)))
     (call-with-output-file (id->path (first identifiers))
       (lambda (file) (write "testcontent" file)))))
 ```
@@ -177,19 +191,3 @@ alternative
 module name: ``(sph db)``
 ```
 ```
-
-# notes
-* read procedures have initialisation costs. it is slightly more efficient to read more items at once using the "count" parameter
-* there can only be one transaction per thread. this matches lmdbs default behaviour
-* fast binary live-backups are supported with the mdb_dump, mdb_load or mdb_copy applications from lmdb. dumps are only compatible with the same id and ordinal size and database version
-
-## development
-* "dg-guile-generic-read-state-t" have been implemented so that it is possible to free the underlying sph-db reader-states and close cursors before the transaction is finished and the scm object is garbage collected. cursors have to be closed when read transactions are used, but can/should not be closed after the transaction is finished
-* dg selections are bound to threads, that is why using the environment option MDB-NOTLS with dg-init probably would not work
-
-# license
-gpl3+
-
-# maintainer
-http://sph.mn
-sph@posteo.eu

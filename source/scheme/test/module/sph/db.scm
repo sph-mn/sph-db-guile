@@ -13,8 +13,7 @@
 
   (define-test (db-env env)
     (assert-and
-      (assert-and "basics" (db-env? env)
-        (not (db-env? #f)) (db-env-open? env)
+      (assert-and "basics" (db-env-open? env)
         (string? (db-env-root env)) (integer? (db-env-format env)) (integer? (db-env-maxkeysize env)))
       (assert-equal "root" (db-env-root env) test-helper-db-database-root)))
 
@@ -23,8 +22,7 @@
       (test-combination
         (l (txn-begin txn-end)
           (let (txn (txn-begin env))
-            (and (db-txn? txn) (db-txn-active? txn)
-              (begin (txn-end txn) #t) (not (db-txn-active? txn))))))
+            (and (db-txn-active? txn) (begin (txn-end txn) #t) (not (db-txn-active? txn))))))
       (assert-and (assert-true "begin-abort" (test-combination db-txn-begin db-txn-abort))
         (assert-true "begin-commit" (test-combination db-txn-begin db-txn-commit))
         (assert-true "write-begin-abort" (test-combination db-txn-write-begin db-txn-abort))

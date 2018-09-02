@@ -6,12 +6,6 @@
 #include "./foreign/sph/one.c"
 #include "./foreign/sph/guile.c"
 #include "./helper.c"
-SCM scm_db_env_p(SCM a) {
-  return ((scm_from_bool((SCM_SMOB_PREDICATE(scm_type_env, a)))));
-};
-SCM scm_db_txn_p(SCM a) {
-  return ((scm_from_bool((SCM_SMOB_PREDICATE(scm_type_txn, a)))));
-};
 SCM scm_db_env_open_p(SCM a) {
   return ((scm_from_bool(((scm_to_db_env(a))->is_open))));
 };
@@ -23,9 +17,6 @@ SCM scm_db_env_maxkeysize(SCM a) {
 };
 SCM scm_db_env_format(SCM a) {
   return ((scm_from_uint32(((scm_to_db_env(a))->format))));
-};
-SCM scm_db_selection_p(SCM a) {
-  return ((scm_from_bool((SCM_SMOB_PREDICATE(scm_type_selection, a)))));
 };
 SCM scm_db_open(SCM scm_root, SCM scm_options) {
   status_declare;
@@ -110,7 +101,7 @@ SCM scm_db_txn_abort(SCM scm_txn) {
   txn = scm_to_db_txn(scm_txn);
   db_txn_abort(txn);
   free(txn);
-  SCM_SET_SMOB_DATA(scm_txn, 0);
+  scm_foreign_object_set_x(scm_txn, 0, 0);
   return (SCM_UNSPECIFIED);
 };
 /** note that commit frees cursors. db-guile-selections-free closes cursors.
@@ -123,12 +114,12 @@ SCM scm_db_txn_commit(SCM scm_txn) {
   txn = scm_to_db_txn(scm_txn);
   status_require((db_txn_commit(txn)));
   free(txn);
-  SCM_SET_SMOB_DATA(scm_txn, 0);
+  scm_foreign_object_set_x(scm_txn, 0, 0);
 exit:
   status_to_scm_return(SCM_UNSPECIFIED);
 };
 SCM scm_db_txn_active_p(SCM a) {
-  return ((scm_from_bool((SCM_SMOB_DATA(a)))));
+  return ((scm_from_bool((scm_to_db_txn(a)))));
 };
 SCM scm_db_txn_begin(SCM scm_env) {
   status_declare;
@@ -170,12 +161,61 @@ SCM scm_db_status_description(SCM id_status, SCM id_group) {
 SCM scm_db_status_group_id_to_name(SCM a) {
   scm_from_latin1_symbol((db_status_group_id_to_name((scm_to_int(a)))));
 };
+SCM scm_db_type_create(SCM scm_env,
+  SCM scm_name,
+  SCM scm_fields,
+  SCM scm_flags) {
+  status_declare;
+  uint8_t* field_name;
+  db_name_len_t field_name_len;
+  db_field_type_t field_type;
+  db_field_t* fields;
+  db_fields_len_t fields_len;
+  uint8_t flags;
+  db_fields_len_t i;
+  uint8_t* name;
+  SCM scm_field;
+  db_type_t* type;
+  name = scm_to_locale_string(scm_name);
+  flags = scm_to_uint8(scm_flags);
+  fields_len = scm_to_uint((scm_length(scm_fields)));
+  db_calloc(fields, fields_len, (sizeof(db_field_t)));
+  for (i = 0; (i < fields_len); i = (1 + i), scm_field = scm_tail(scm_fields)) {
+    scm_field = scm_first(scm_fields);
+    field_name = scm_to_locale_string((scm_first(scm_field)));
+    field_name_len = strlen(field_name);
+    field_type = scm_to_uint8((scm_tail(scm_field)));
+    db_field_set((fields[i]), field_type, field_name, field_name_len);
+  };
+  status_require((db_type_create(
+    (scm_to_db_env(scm_env)), name, fields, fields_len, flags, (&type))));
+exit:
+  status_to_scm_return((db_type_to_scm(type)));
+};
+/** -> type */
+SCM scm_db_type_get(SCM scm_env, SCM scm_name);
+SCM scm_db_type_delete(SCM scm_env, SCM scm_id) {
+  status_declare;
+  status_require(
+    (db_type_delete((scm_to_db_env(scm_env)), (scm_to_uint(scm_id)))));
+exit:
+  status_to_scm_return(SCM_UNSPECIFIED);
+};
 /** prepare scm valuaes and register guile bindings */
 void db_guile_init() {
-  scm_type_txn = scm_make_smob_type("db-txn", 0);
-  scm_type_env = scm_make_smob_type("db-env", 0);
-  scm_type_selection = scm_make_smob_type("db-selection", 0);
+  SCM type_slots;
   scm_rnrs_raise = scm_c_public_ref("rnrs exceptions", "raise");
+  type_slots = scm_list_1((scm_from_latin1_symbol("data")));
+  scm_type_env = scm_make_foreign_object_type(
+    (scm_from_latin1_symbol("db-env")), type_slots, 0);
+  scm_type_txn = scm_make_foreign_object_type(
+    (scm_from_latin1_symbol("db-txn")), type_slots, 0);
+  scm_type_type = scm_make_foreign_object_type(
+    (scm_from_latin1_symbol("db-type")), type_slots, 0);
+  scm_type_index = scm_make_foreign_object_type(
+    (scm_from_latin1_symbol("db-index")), type_slots, 0);
+  scm_type_selection = scm_make_foreign_object_type(
+    (scm_from_latin1_symbol("db-selection")), type_slots, 0);
   scm_c_define_procedure_c_init;
   scm_c_define_procedure_c("db-open",
     1,
@@ -185,9 +225,6 @@ void db_guile_init() {
     ("string:root [((key . value) ...):options] ->"));
   scm_c_define_procedure_c(
     "db-close", 1, 0, 0, scm_db_close, "deinitialises the database handle");
-  scm_c_define_procedure_c("db-env?", 1, 0, 0, scm_db_env_p, "");
-  scm_c_define_procedure_c("db-txn?", 1, 0, 0, scm_db_txn_p, "");
-  scm_c_define_procedure_c("db-selection?", 1, 0, 0, scm_db_selection_p, "");
   scm_c_define_procedure_c("db-env-open?", 1, 0, 0, scm_db_env_open_p, "");
   scm_c_define_procedure_c(
     "db-env-maxkeysize", 1, 0, 0, scm_db_env_maxkeysize, "");

@@ -12,13 +12,17 @@
       (if* (scm-is-pair result) (scm-tail result)
         SCM-UNDEFINED)))
   ; scm types
-  (scm->db-txn a) (convert-type (SCM-SMOB-DATA a) db-txn-t*)
-  (db-txn->scm pointer) (scm-new-smob scm-type-txn (convert-type pointer scm-t-bits))
-  (scm->db-env a) (convert-type (SCM-SMOB-DATA a) db-env-t*)
-  (db-env->scm pointer) (scm-new-smob scm-type-env (convert-type pointer scm-t-bits))
+  (db-env->scm pointer) (scm-make-foreign-object-1 scm-type-env pointer)
+  (db-txn->scm pointer) (scm-make-foreign-object-1 scm-type-txn pointer)
+  (db-index->scm pointer) (scm-make-foreign-object-1 scm-type-index pointer)
+  (db-type->scm pointer) (scm-make-foreign-object-1 scm-type-type pointer)
+  (db-selection->scm pointer) (scm-make-foreign-object-1 scm-type-selection pointer)
+  (scm->db-env a) (convert-type (scm-foreign-object-ref a 0) db-env-t*)
+  (scm->db-txn a) (convert-type (scm-foreign-object-ref a 0) db-txn-t*)
+  (scm->db-index a) (convert-type (scm-foreign-object-ref a 0) db-index-t*)
+  (scm->db-type a) (convert-type (scm-foreign-object-ref a 0) db-type-t*)
   (scm->db-selection a selection-name)
-  (convert-type (SCM-SMOB-DATA a) (pre-concat db_ selection-name _selection-t*))
-  (db-selection->scm pointer) (scm-new-smob scm-type-selection (convert-type pointer scm-t-bits))
+  (convert-type (scm-foreign-object-ref a 0) (pre-concat db_ selection-name _selection-t*))
   ; error handling
   (status->scm-error a) (scm-c-error (db-status-name a) (db-status-description a))
   (scm-c-error name description)
@@ -34,9 +38,11 @@
     (status->scm-error status)))
 
 (declare
-  scm-type-env scm-t-bits
-  scm-type-txn scm-t-bits
-  scm-type-selection scm-t-bits
+  scm-type-env SCM
+  scm-type-txn SCM
+  scm-type-selection SCM
+  scm-type-type SCM
+  scm-type-index SCM
   scm-rnrs-raise SCM)
 
 (define (scm-from-mdb-stat a) (SCM MDB-stat)

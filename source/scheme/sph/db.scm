@@ -5,7 +5,6 @@
     db-env-maxkeysize
     db-env-open?
     db-env-root
-    db-env?
     db-open
     db-relation-field-names
     db-relation-label
@@ -24,7 +23,6 @@
     db-txn-call-write
     db-txn-commit
     db-txn-write-begin
-    db-txn?
     db-use
     db-use-p)
   (import

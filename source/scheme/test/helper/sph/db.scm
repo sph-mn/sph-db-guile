@@ -2,7 +2,8 @@
   (export
     test-helper-db-database-root
     test-helper-db-default-test-settings
-    test-helper-delete-database-files)
+    test-helper-delete-database-files
+    test-helper-type-create-1)
   (import
     (guile)
     (rnrs bytevectors)
@@ -17,6 +18,13 @@
 
   (define test-helper-db-database-root "/tmp/test/sph-db")
   (define (delete-file-if-exists a) (and (file-exists? a) (delete-file a)))
+
+  (define (test-helper-type-create-1 env c)
+    (let*
+      ( (name "test-type")
+        (fields (q (("field-1" . int64) ("field-2" . uint8) ("field-3" . string))))
+        (type (db-type-create env name fields)))
+      (c name fields type)))
 
   (define (test-helper-delete-database-files)
     (each delete-file-if-exists

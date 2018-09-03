@@ -5,6 +5,11 @@
     db-env-maxkeysize
     db-env-open?
     db-env-root
+    db-index-create
+    db-index-delete
+    db-index-fields
+    db-index-get
+    db-index-rebuild
     db-open
     db-relation-field-names
     db-relation-label

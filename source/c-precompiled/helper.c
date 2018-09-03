@@ -1,13 +1,15 @@
 /* bindings that arent part of the exported scheme api and debug features.
 separate file because it is easier to start from the exported features */
+#define db_status_group_db_guile db_status_group_last
+#define db_status_id_field_name_not_found db_status_id_last
 /** SCM uint8_t* SCM -> unspecified */
 #define scm_options_get(options, name, result) \
   result = scm_assoc_ref(scm_options, (scm_from_latin1_symbol(name))); \
   result = (scm_is_pair(result) ? scm_tail(result) : SCM_UNDEFINED)
 #define db_env_to_scm(pointer) scm_make_foreign_object_1(scm_type_env, pointer)
 #define db_txn_to_scm(pointer) scm_make_foreign_object_1(scm_type_txn, pointer)
-#define db_index_to_scm(pointer) \
-  scm_make_foreign_object_1(scm_type_index, pointer)
+#define db_index_to_scm(pointer, env) \
+  scm_make_foreign_object_2(scm_type_index, pointer, env)
 #define db_type_to_scm(pointer, env) \
   scm_make_foreign_object_2(scm_type_type, pointer, env)
 #define db_selection_to_scm(pointer) \
@@ -18,8 +20,10 @@ separate file because it is easier to start from the exported features */
 #define scm_to_db_type(a) ((db_type_t*)(scm_foreign_object_ref(a, 0)))
 #define scm_to_db_selection(a, selection_name) \
   ((db_##selection_name##_selection_t*)(scm_foreign_object_ref(a, 0)))
+#define scm_type_to_db_env(a) ((db_env_t*)(scm_foreign_object_ref(a, 1)))
+#define scm_index_to_db_env(a) ((db_env_t*)(scm_foreign_object_ref(a, 1)))
 #define status_to_scm_error(a) \
-  scm_c_error((db_status_name(a)), (db_status_description(a)))
+  scm_c_error((db_guile_status_name(a)), (db_guile_status_description(a)))
 #define scm_c_error(name, description) \
   scm_call_1(scm_rnrs_raise, \
     (scm_list_3((scm_from_latin1_symbol(name)), \
@@ -52,6 +56,70 @@ SCM scm_symbol_string8;
 SCM scm_symbol_string16;
 SCM scm_symbol_string32;
 SCM scm_symbol_string64;
+status_t scm_to_field_offsets(SCM scm_type,
+  SCM scm_fields,
+  db_fields_len_t** result,
+  db_fields_len_t* result_len) {
+  status_declare;
+  SCM scm_field;
+  db_field_t* field;
+  db_fields_len_t i;
+  db_fields_len_t fields_len;
+  db_fields_len_t* fields;
+  uint8_t* field_name;
+  db_type_t* type;
+  fields_len = scm_to_uint((scm_length(scm_fields)));
+  type = scm_to_db_type(scm_type);
+  db_calloc(fields, fields_len, (sizeof(db_fields_len_t)));
+  for (i = 0; (i < fields_len);
+       i = (1 + i), scm_fields = scm_tail(scm_fields)) {
+    scm_field = scm_first(scm_fields);
+    if (scm_is_string(scm_field)) {
+      field_name = scm_to_utf8_string(scm_field);
+      field = db_type_field_get(type, field_name);
+      if (field) {
+        fields[i] = field->index;
+      } else {
+        status_set_both_goto(
+          db_status_group_db_guile, db_status_id_field_name_not_found);
+      };
+    } else {
+      fields[i] = scm_to_uint(scm_field);
+    };
+  };
+  *result = fields;
+  *result_len = fields_len;
+exit:
+  return (status);
+};
+/** get the description if available for a status */
+uint8_t* db_guile_status_description(status_t a) {
+  char* b;
+  if (db_status_group_db_guile == a.group) {
+    if (db_status_id_field_name_not_found == a.id) {
+      b = "no field found with given name";
+    } else {
+      b = "";
+    };
+  } else {
+    b = db_status_description(a);
+  };
+  return (((uint8_t*)(b)));
+};
+/** get the name if available for a status */
+uint8_t* db_guile_status_name(status_t a) {
+  char* b;
+  if (db_status_group_db_guile == a.group) {
+    if (db_status_id_field_name_not_found == a.id) {
+      b = "field-not-found";
+    } else {
+      b = "";
+    };
+  } else {
+    b = db_status_name(a);
+  };
+  return (((uint8_t*)(b)));
+};
 db_field_type_t scm_to_db_field_type(SCM a) {
   if (scm_is_eq(scm_symbol_binary, a)) {
     return (1);

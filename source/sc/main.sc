@@ -1,5 +1,5 @@
 (sc-comment
-  "sph-db-guile basically registers scheme procedures that when called execute specific c-functions that manage calls to sph-db")
+  "sph-db-guile registers scheme procedures that when called execute specific c-functions that manage calls to sph-db")
 
 (pre-include
   "libguile.h" "sph-db.h" "sph-db-extra.h" "./foreign/sph/one.c" "./foreign/sph/guile.c" "./helper.c")
@@ -43,38 +43,43 @@
         result)))
   (return result))
 
-(define (scm-db-type-indices a) (SCM SCM)
+(define (db-index->scm-fields a) (SCM db-index-t*)
   (declare
     field db-field-t
-    i-index db-indices-len-t
-    i-field db-fields-len-t
-    index db-index-t*
-    index-fields db-fields-len-t*
-    index-fields-len db-fields-len-t
+    type db-type-t*
+    i db-fields-len-t
+    result SCM)
+  (set
+    result SCM-EOL
+    type a:type)
+  (for ((set i 0) (< i a:fields-len) (set i (+ 1 i)))
+    (set
+      field (array-get type:fields (array-get a:fields i))
+      result
+      (scm-cons
+        (scm-cons
+          (scm-from-uint (array-get a:fields i)) (scm-from-utf8-stringn field.name field.name-len))
+        result)))
+  (return result))
+
+(define (scm-db-type-indices scm-type) (SCM SCM)
+  (declare
+    i db-indices-len-t
     indices db-index-t*
     indices-len db-indices-len-t
     result SCM
-    scm-fields SCM
     type db-type-t*)
   (set
     result SCM-EOL
-    type (scm->db-type a)
+    type (scm->db-type scm-type)
     indices-len type:indices-len
     indices type:indices)
-  (for ((set i-field 0) (< i-field indices-len) (set i-index (+ 1 i-index)))
-    (set
-      index (+ i-index indices)
-      scm-fields SCM-EOL)
-    (for ((set i-field 0) (< i-field index:fields-len) (set i-field (+ 1 i-field)))
-      (set
-        field (array-get type:fields (array-get index:fields i-field))
-        scm-fields
-        (scm-cons
-          (scm-list-2
-            (scm-from-utf8-stringn field.name field.name-len) (db-field-type->scm field.type))
-          scm-fields)))
-    (set result (scm-cons (scm-cons scm-fields result) result)))
+  (for ((set i 0) (< i indices-len) (set i (+ 1 i)))
+    (set result (scm-cons (db-index->scm-fields (+ i indices)) result)))
   (return result))
+
+(define (scm-db-index-fields scm-index) (SCM SCM)
+  (return (db-index->scm-fields (scm->db-index scm-index))))
 
 (define (scm-db-open scm-root scm-options) (SCM SCM SCM)
   status-declare
@@ -243,9 +248,47 @@
 
 (define (scm-db-type-delete scm-type) (SCM SCM)
   status-declare
+  (status-require (db-type-delete (scm-type->db-env scm-type) (: (scm->db-type scm-type) id)))
+  (label exit
+    (status->scm-return SCM-UNSPECIFIED)))
+
+(define (scm-db-index-create scm-type scm-fields) (SCM SCM SCM)
+  status-declare
+  (declare
+    fields db-fields-len-t*
+    fields-len db-fields-len-t
+    index db-index-t*)
+  (set fields 0)
+  (status-require (scm->field-offsets scm-type scm-fields &fields &fields-len))
   (status-require
-    (db-type-delete
-      (convert-type (scm-foreign-object-ref scm-type 1) db-env-t*) (: (scm->db-type scm-type) id)))
+    (db-index-create (scm-type->db-env scm-type) (scm->db-type scm-type) fields fields-len &index))
+  (label exit
+    (free fields)
+    (status->scm-return (db-index->scm index (scm-type->db-env scm-type)))))
+
+(define (scm-db-index-get scm-type scm-fields) (SCM SCM SCM)
+  status-declare
+  (declare
+    fields db-fields-len-t*
+    fields-len db-fields-len-t
+    index db-index-t*)
+  (status-require (scm->field-offsets scm-type scm-fields &fields &fields-len))
+  (set index (db-index-get (scm->db-type scm-type) fields fields-len))
+  (label exit
+    (free fields)
+    (status->scm-return
+      (if* index (db-index->scm index (scm-type->db-env scm-type))
+        SCM-BOOL-F))))
+
+(define (scm-db-index-delete scm-index) (SCM SCM)
+  status-declare
+  (status-require (db-index-delete (scm-index->db-env scm-index) (scm->db-index scm-index)))
+  (label exit
+    (status->scm-return SCM-UNSPECIFIED)))
+
+(define (scm-db-index-rebuild scm-index) (SCM SCM)
+  status-declare
+  (status-require (db-index-rebuild (scm-index->db-env scm-index) (scm->db-index scm-index)))
   (label exit
     (status->scm-return SCM-UNSPECIFIED)))
 
@@ -276,9 +319,9 @@
     type-slots (scm-list-1 scm-symbol-data)
     scm-type-env (scm-make-foreign-object-type (scm-from-latin1-symbol "db-env") type-slots 0)
     scm-type-txn (scm-make-foreign-object-type (scm-from-latin1-symbol "db-txn") type-slots 0)
-    scm-type-index (scm-make-foreign-object-type (scm-from-latin1-symbol "db-index") type-slots 0)
     type-slots (scm-list-2 scm-symbol-data (scm-from-latin1-symbol "env"))
     scm-type-type (scm-make-foreign-object-type (scm-from-latin1-symbol "db-type") type-slots 0)
+    scm-type-index (scm-make-foreign-object-type (scm-from-latin1-symbol "db-index") type-slots 0)
     scm-type-selection
     (scm-make-foreign-object-type (scm-from-latin1-symbol "db-selection") type-slots 0))
   ; exports
@@ -311,4 +354,9 @@
   (scm-c-define-procedure-c "db-type-indices" 1 0 0 scm-db-type-indices "")
   (scm-c-define-procedure-c "db-type-fields" 1 0 0 scm-db-type-fields "")
   (scm-c-define-procedure-c "db-type-virtual?" 1 0 0 scm-db-type-virtual? "")
-  (scm-c-define-procedure-c "db-type-flags" 1 0 0 scm-db-type-flags ""))
+  (scm-c-define-procedure-c "db-type-flags" 1 0 0 scm-db-type-flags "")
+  (scm-c-define-procedure-c "db-index-create" 2 0 0 scm-db-index-create "")
+  (scm-c-define-procedure-c "db-index-delete" 1 0 0 scm-db-index-delete "")
+  (scm-c-define-procedure-c "db-index-get" 2 0 0 scm-db-index-get "")
+  (scm-c-define-procedure-c "db-index-rebuild" 1 0 0 scm-db-index-rebuild "")
+  (scm-c-define-procedure-c "db-index-fields" 1 0 0 scm-db-index-fields ""))

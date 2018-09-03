@@ -3,6 +3,8 @@
   "separate file because it is easier to start from the exported features")
 
 (pre-define
+  db-status-group-db-guile db-status-group-last
+  db-status-id-field-name-not-found db-status-id-last
   (scm-options-get options name result)
   (begin
     "SCM uint8_t* SCM -> unspecified"
@@ -14,7 +16,7 @@
   ; scm types
   (db-env->scm pointer) (scm-make-foreign-object-1 scm-type-env pointer)
   (db-txn->scm pointer) (scm-make-foreign-object-1 scm-type-txn pointer)
-  (db-index->scm pointer) (scm-make-foreign-object-1 scm-type-index pointer)
+  (db-index->scm pointer env) (scm-make-foreign-object-2 scm-type-index pointer env)
   (db-type->scm pointer env) (scm-make-foreign-object-2 scm-type-type pointer env)
   (db-selection->scm pointer) (scm-make-foreign-object-1 scm-type-selection pointer)
   (scm->db-env a) (convert-type (scm-foreign-object-ref a 0) db-env-t*)
@@ -23,8 +25,10 @@
   (scm->db-type a) (convert-type (scm-foreign-object-ref a 0) db-type-t*)
   (scm->db-selection a selection-name)
   (convert-type (scm-foreign-object-ref a 0) (pre-concat db_ selection-name _selection-t*))
+  (scm-type->db-env a) (convert-type (scm-foreign-object-ref a 1) db-env-t*)
+  (scm-index->db-env a) (convert-type (scm-foreign-object-ref a 1) db-env-t*)
   ; error handling
-  (status->scm-error a) (scm-c-error (db-status-name a) (db-status-description a))
+  (status->scm-error a) (scm-c-error (db-guile-status-name a) (db-guile-status-description a))
   (scm-c-error name description)
   (scm-call-1
     scm-rnrs-raise
@@ -60,6 +64,63 @@
   scm-symbol-string16 SCM
   scm-symbol-string32 SCM
   scm-symbol-string64 SCM)
+
+(define (scm->field-offsets scm-type scm-fields result result-len)
+  (status-t SCM SCM db-fields-len-t** db-fields-len-t*)
+  status-declare
+  (declare
+    scm-field SCM
+    field db-field-t*
+    i db-fields-len-t
+    fields-len db-fields-len-t
+    fields db-fields-len-t*
+    field-name uint8-t*
+    type db-type-t*)
+  (set
+    fields-len (scm->uint (scm-length scm-fields))
+    type (scm->db-type scm-type))
+  (db-calloc fields fields-len (sizeof db-fields-len-t))
+  (for
+    ( (set i 0) (< i fields-len)
+      (set
+        i (+ 1 i)
+        scm-fields (scm-tail scm-fields)))
+    (set scm-field (scm-first scm-fields))
+    (if (scm-is-string scm-field)
+      (begin
+        (set
+          field-name (scm->utf8-string scm-field)
+          field (db-type-field-get type field-name))
+        (if field (set (array-get fields i) field:index)
+          (status-set-both-goto db-status-group-db-guile db-status-id-field-name-not-found)))
+      (set (array-get fields i) (scm->uint scm-field))))
+  (set
+    *result fields
+    *result-len fields-len)
+  (label exit
+    (return status)))
+
+(define (db-guile-status-description a) (uint8-t* status-t)
+  "get the description if available for a status"
+  (declare b char*)
+  (case = a.group
+    (db-status-group-db-guile
+      (case = a.id
+        (db-status-id-field-name-not-found (set b "no field found with given name"))
+        (else (set b ""))))
+    (else (set b (db-status-description a))))
+  (return (convert-type b uint8-t*)))
+
+(define (db-guile-status-name a) (uint8-t* status-t)
+  "get the name if available for a status"
+  (declare b char*)
+  (case = a.group
+    (db-status-group-db-guile
+      (case = a.id
+        (db-status-id-field-name-not-found (set b "field-not-found"))
+        (else (set b ""))))
+    (else (set b (db-status-name a))))
+  (return (convert-type b uint8-t*)))
 
 (define (scm->db-field-type a) (db-field-type-t SCM)
   (case scm-is-eq a

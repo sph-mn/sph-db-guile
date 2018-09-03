@@ -50,6 +50,20 @@ to load the bindings
 the database is created if it does not exist.
 alternatively there is ``(db-open "/tmp/example")`` and ``(db-close env)``.
 
+## create a type
+```
+(define fields (q (("field-1" . int64) ("field-2" . uint8) ("field-3" . string))))
+(define type (db-type-create env "test-type" fields))
+```
+
+all fixed size types like ``int64`` must come before variable size types like string.
+possible field types are: binary, string, float32, float64, int8, int16, int32, int64, uint8, uint16, uint32, uint64, string8, string16, string32, string64
+
+to get a type handle where needed
+```
+(db-type-get env "test-type")
+```
+
 ## create relations
 
 relations are between records specified by their ids and they are not checked for existence.

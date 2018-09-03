@@ -1,5 +1,5 @@
-/* sph-db-guile basically registers scheme procedures that when called execute
- * specific c-functions that manage calls to sph-db */
+/* sph-db-guile registers scheme procedures that when called execute specific
+ * c-functions that manage calls to sph-db */
 #include <libguile.h>
 #include <sph-db.h>
 #include <sph-db-extra.h>
@@ -55,35 +55,39 @@ SCM scm_db_type_fields(SCM a) {
   };
   return (result);
 };
-SCM scm_db_type_indices(SCM a) {
+SCM db_index_to_scm_fields(db_index_t* a) {
   db_field_t field;
-  db_indices_len_t i_index;
-  db_fields_len_t i_field;
-  db_index_t* index;
-  db_fields_len_t* index_fields;
-  db_fields_len_t index_fields_len;
+  db_type_t* type;
+  db_fields_len_t i;
+  SCM result;
+  result = SCM_EOL;
+  type = a->type;
+  for (i = 0; (i < a->fields_len); i = (1 + i)) {
+    field = (type->fields)[(a->fields)[i]];
+    result =
+      scm_cons((scm_cons((scm_from_uint(((a->fields)[i]))),
+                 (scm_from_utf8_stringn((field.name), (field.name_len))))),
+        result);
+  };
+  return (result);
+};
+SCM scm_db_type_indices(SCM scm_type) {
+  db_indices_len_t i;
   db_index_t* indices;
   db_indices_len_t indices_len;
   SCM result;
-  SCM scm_fields;
   db_type_t* type;
   result = SCM_EOL;
-  type = scm_to_db_type(a);
+  type = scm_to_db_type(scm_type);
   indices_len = type->indices_len;
   indices = type->indices;
-  for (i_field = 0; (i_field < indices_len); i_index = (1 + i_index)) {
-    index = (i_index + indices);
-    scm_fields = SCM_EOL;
-    for (i_field = 0; (i_field < index->fields_len); i_field = (1 + i_field)) {
-      field = (type->fields)[(index->fields)[i_field]];
-      scm_fields = scm_cons(
-        (scm_list_2((scm_from_utf8_stringn((field.name), (field.name_len))),
-          (db_field_type_to_scm((field.type))))),
-        scm_fields);
-    };
-    result = scm_cons((scm_cons(scm_fields, result)), result);
+  for (i = 0; (i < indices_len); i = (1 + i)) {
+    result = scm_cons((db_index_to_scm_fields((i + indices))), result);
   };
   return (result);
+};
+SCM scm_db_index_fields(SCM scm_index) {
+  return ((db_index_to_scm_fields((scm_to_db_index(scm_index)))));
 };
 SCM scm_db_open(SCM scm_root, SCM scm_options) {
   status_declare;
@@ -271,9 +275,54 @@ SCM scm_db_type_get(SCM scm_env, SCM scm_name_or_id) {
 };
 SCM scm_db_type_delete(SCM scm_type) {
   status_declare;
+  status_require((db_type_delete(
+    (scm_type_to_db_env(scm_type)), ((scm_to_db_type(scm_type))->id))));
+exit:
+  status_to_scm_return(SCM_UNSPECIFIED);
+};
+SCM scm_db_index_create(SCM scm_type, SCM scm_fields) {
+  status_declare;
+  db_fields_len_t* fields;
+  db_fields_len_t fields_len;
+  db_index_t* index;
+  fields = 0;
   status_require(
-    (db_type_delete(((db_env_t*)(scm_foreign_object_ref(scm_type, 1))),
-      ((scm_to_db_type(scm_type))->id))));
+    (scm_to_field_offsets(scm_type, scm_fields, (&fields), (&fields_len))));
+  status_require((db_index_create((scm_type_to_db_env(scm_type)),
+    (scm_to_db_type(scm_type)),
+    fields,
+    fields_len,
+    (&index))));
+exit:
+  free(fields);
+  status_to_scm_return(
+    (db_index_to_scm(index, (scm_type_to_db_env(scm_type)))));
+};
+SCM scm_db_index_get(SCM scm_type, SCM scm_fields) {
+  status_declare;
+  db_fields_len_t* fields;
+  db_fields_len_t fields_len;
+  db_index_t* index;
+  status_require(
+    (scm_to_field_offsets(scm_type, scm_fields, (&fields), (&fields_len))));
+  index = db_index_get((scm_to_db_type(scm_type)), fields, fields_len);
+exit:
+  free(fields);
+  status_to_scm_return(
+    (index ? db_index_to_scm(index, (scm_type_to_db_env(scm_type)))
+           : SCM_BOOL_F));
+};
+SCM scm_db_index_delete(SCM scm_index) {
+  status_declare;
+  status_require((db_index_delete(
+    (scm_index_to_db_env(scm_index)), (scm_to_db_index(scm_index)))));
+exit:
+  status_to_scm_return(SCM_UNSPECIFIED);
+};
+SCM scm_db_index_rebuild(SCM scm_index) {
+  status_declare;
+  status_require((db_index_rebuild(
+    (scm_index_to_db_env(scm_index)), (scm_to_db_index(scm_index)))));
 exit:
   status_to_scm_return(SCM_UNSPECIFIED);
 };
@@ -304,11 +353,11 @@ void db_guile_init() {
     (scm_from_latin1_symbol("db-env")), type_slots, 0);
   scm_type_txn = scm_make_foreign_object_type(
     (scm_from_latin1_symbol("db-txn")), type_slots, 0);
-  scm_type_index = scm_make_foreign_object_type(
-    (scm_from_latin1_symbol("db-index")), type_slots, 0);
   type_slots = scm_list_2(scm_symbol_data, (scm_from_latin1_symbol("env")));
   scm_type_type = scm_make_foreign_object_type(
     (scm_from_latin1_symbol("db-type")), type_slots, 0);
+  scm_type_index = scm_make_foreign_object_type(
+    (scm_from_latin1_symbol("db-index")), type_slots, 0);
   scm_type_selection = scm_make_foreign_object_type(
     (scm_from_latin1_symbol("db-selection")), type_slots, 0);
   scm_c_define_procedure_c_init;
@@ -361,4 +410,10 @@ void db_guile_init() {
   scm_c_define_procedure_c(
     "db-type-virtual?", 1, 0, 0, scm_db_type_virtual_p, "");
   scm_c_define_procedure_c("db-type-flags", 1, 0, 0, scm_db_type_flags, "");
+  scm_c_define_procedure_c("db-index-create", 2, 0, 0, scm_db_index_create, "");
+  scm_c_define_procedure_c("db-index-delete", 1, 0, 0, scm_db_index_delete, "");
+  scm_c_define_procedure_c("db-index-get", 2, 0, 0, scm_db_index_get, "");
+  scm_c_define_procedure_c(
+    "db-index-rebuild", 1, 0, 0, scm_db_index_rebuild, "");
+  scm_c_define_procedure_c("db-index-fields", 1, 0, 0, scm_db_index_fields, "");
 };

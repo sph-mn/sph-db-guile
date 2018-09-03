@@ -6,17 +6,84 @@
 #include "./foreign/sph/one.c"
 #include "./foreign/sph/guile.c"
 #include "./helper.c"
+SCM scm_db_txn_active_p(SCM a) {
+  return ((scm_from_bool((scm_to_db_txn(a)))));
+};
 SCM scm_db_env_open_p(SCM a) {
   return ((scm_from_bool(((scm_to_db_env(a))->is_open))));
 };
 SCM scm_db_env_root(SCM a) {
-  return ((scm_from_locale_string(((scm_to_db_env(a))->root))));
+  return ((scm_from_utf8_string(((scm_to_db_env(a))->root))));
 };
 SCM scm_db_env_maxkeysize(SCM a) {
   return ((scm_from_uint32(((scm_to_db_env(a))->maxkeysize))));
 };
 SCM scm_db_env_format(SCM a) {
   return ((scm_from_uint32(((scm_to_db_env(a))->format))));
+};
+SCM scm_db_type_id(SCM a) {
+  return ((scm_from_uint(((scm_to_db_type(a))->id))));
+};
+SCM scm_db_type_name(SCM a) {
+  return ((scm_from_utf8_string(((scm_to_db_type(a))->name))));
+};
+SCM scm_db_type_flags(SCM a) {
+  return ((scm_from_uint8(((scm_to_db_type(a))->flags))));
+};
+SCM scm_db_type_virtual_p(SCM a) {
+  return ((scm_from_bool((db_type_is_virtual((scm_to_db_type(a)))))));
+};
+SCM scm_db_type_fields(SCM a) {
+  db_fields_len_t i;
+  db_type_t* type;
+  db_fields_len_t fields_len;
+  db_field_t field;
+  db_field_t* fields;
+  SCM result;
+  result = SCM_EOL;
+  type = scm_to_db_type(a);
+  fields = type->fields;
+  fields_len = type->fields_len;
+  i = fields_len;
+  while (i) {
+    i = (i - 1);
+    field = fields[i];
+    result = scm_cons(
+      (scm_cons((scm_from_utf8_stringn((field.name), (field.name_len))),
+        (db_field_type_to_scm((field.type))))),
+      result);
+  };
+  return (result);
+};
+SCM scm_db_type_indices(SCM a) {
+  db_field_t field;
+  db_indices_len_t i_index;
+  db_fields_len_t i_field;
+  db_index_t* index;
+  db_fields_len_t* index_fields;
+  db_fields_len_t index_fields_len;
+  db_index_t* indices;
+  db_indices_len_t indices_len;
+  SCM result;
+  SCM scm_fields;
+  db_type_t* type;
+  result = SCM_EOL;
+  type = scm_to_db_type(a);
+  indices_len = type->indices_len;
+  indices = type->indices;
+  for (i_field = 0; (i_field < indices_len); i_index = (1 + i_index)) {
+    index = (i_index + indices);
+    scm_fields = SCM_EOL;
+    for (i_field = 0; (i_field < index->fields_len); i_field = (1 + i_field)) {
+      field = (type->fields)[(index->fields)[i_field]];
+      scm_fields = scm_cons(
+        (scm_list_2((scm_from_utf8_stringn((field.name), (field.name_len))),
+          (db_field_type_to_scm((field.type))))),
+        scm_fields);
+    };
+    result = scm_cons((scm_cons(scm_fields, result)), result);
+  };
+  return (result);
 };
 SCM scm_db_open(SCM scm_root, SCM scm_options) {
   status_declare;
@@ -26,7 +93,7 @@ SCM scm_db_open(SCM scm_root, SCM scm_options) {
   SCM a;
   uint8_t* root;
   root = 0;
-  root = scm_to_locale_string(scm_root);
+  root = scm_to_utf8_string(scm_root);
   status_require((db_env_new((&env))));
   if (scm_is_undefined(scm_options) || scm_is_null(scm_options)) {
     options_pointer = 0;
@@ -118,9 +185,6 @@ SCM scm_db_txn_commit(SCM scm_txn) {
 exit:
   status_to_scm_return(SCM_UNSPECIFIED);
 };
-SCM scm_db_txn_active_p(SCM a) {
-  return ((scm_from_bool((scm_to_db_txn(a)))));
-};
 SCM scm_db_txn_begin(SCM scm_env) {
   status_declare;
   db_txn_t* txn;
@@ -176,47 +240,81 @@ SCM scm_db_type_create(SCM scm_env,
   uint8_t* name;
   SCM scm_field;
   db_type_t* type;
-  name = scm_to_locale_string(scm_name);
-  flags = scm_to_uint8(scm_flags);
+  name = scm_to_utf8_string(scm_name);
+  flags = (scm_is_undefined(scm_flags) ? 0 : scm_to_uint8(scm_flags));
   fields_len = scm_to_uint((scm_length(scm_fields)));
   db_calloc(fields, fields_len, (sizeof(db_field_t)));
-  for (i = 0; (i < fields_len); i = (1 + i), scm_field = scm_tail(scm_fields)) {
+  for (i = 0; (i < fields_len);
+       i = (1 + i), scm_fields = scm_tail(scm_fields)) {
     scm_field = scm_first(scm_fields);
-    field_name = scm_to_locale_string((scm_first(scm_field)));
+    field_name = scm_to_utf8_string((scm_first(scm_field)));
     field_name_len = strlen(field_name);
-    field_type = scm_to_uint8((scm_tail(scm_field)));
+    field_type = scm_to_db_field_type((scm_tail(scm_field)));
     db_field_set((fields[i]), field_type, field_name, field_name_len);
   };
   status_require((db_type_create(
     (scm_to_db_env(scm_env)), name, fields, fields_len, flags, (&type))));
 exit:
-  status_to_scm_return((db_type_to_scm(type)));
+  status_to_scm_return((db_type_to_scm(type, (scm_to_db_env(scm_env)))));
 };
-/** -> type */
-SCM scm_db_type_get(SCM scm_env, SCM scm_name);
-SCM scm_db_type_delete(SCM scm_env, SCM scm_id) {
+SCM scm_db_type_get(SCM scm_env, SCM scm_name_or_id) {
+  db_type_t* type;
+  uint8_t* name;
+  if (scm_is_string(scm_name_or_id)) {
+    name = scm_to_utf8_string(scm_name_or_id);
+    type = db_type_get((scm_to_db_env(scm_env)), name);
+  } else {
+    type = db_type_get_by_id(
+      (scm_to_db_env(scm_env)), (scm_to_uint(scm_name_or_id)));
+  };
+  return ((type ? db_type_to_scm(type, (scm_to_db_env(scm_env))) : SCM_BOOL_F));
+};
+SCM scm_db_type_delete(SCM scm_type) {
   status_declare;
   status_require(
-    (db_type_delete((scm_to_db_env(scm_env)), (scm_to_uint(scm_id)))));
+    (db_type_delete(((db_env_t*)(scm_foreign_object_ref(scm_type, 1))),
+      ((scm_to_db_type(scm_type))->id))));
 exit:
   status_to_scm_return(SCM_UNSPECIFIED);
 };
 /** prepare scm valuaes and register guile bindings */
 void db_guile_init() {
   SCM type_slots;
+  SCM scm_symbol_data;
+  scm_symbol_data = scm_from_latin1_symbol("data");
+  scm_symbol_binary = scm_from_latin1_symbol("binary");
+  scm_symbol_string = scm_from_latin1_symbol("string");
+  scm_symbol_float32 = scm_from_latin1_symbol("float32");
+  scm_symbol_float64 = scm_from_latin1_symbol("float64");
+  scm_symbol_int8 = scm_from_latin1_symbol("int8");
+  scm_symbol_int16 = scm_from_latin1_symbol("int16");
+  scm_symbol_int32 = scm_from_latin1_symbol("int32");
+  scm_symbol_int64 = scm_from_latin1_symbol("int64");
+  scm_symbol_uint8 = scm_from_latin1_symbol("uint8");
+  scm_symbol_uint16 = scm_from_latin1_symbol("uint16");
+  scm_symbol_uint32 = scm_from_latin1_symbol("uint32");
+  scm_symbol_uint64 = scm_from_latin1_symbol("uint64");
+  scm_symbol_string8 = scm_from_latin1_symbol("string8");
+  scm_symbol_string16 = scm_from_latin1_symbol("string16");
+  scm_symbol_string32 = scm_from_latin1_symbol("string32");
+  scm_symbol_string64 = scm_from_latin1_symbol("string64");
   scm_rnrs_raise = scm_c_public_ref("rnrs exceptions", "raise");
-  type_slots = scm_list_1((scm_from_latin1_symbol("data")));
+  type_slots = scm_list_1(scm_symbol_data);
   scm_type_env = scm_make_foreign_object_type(
     (scm_from_latin1_symbol("db-env")), type_slots, 0);
   scm_type_txn = scm_make_foreign_object_type(
     (scm_from_latin1_symbol("db-txn")), type_slots, 0);
-  scm_type_type = scm_make_foreign_object_type(
-    (scm_from_latin1_symbol("db-type")), type_slots, 0);
   scm_type_index = scm_make_foreign_object_type(
     (scm_from_latin1_symbol("db-index")), type_slots, 0);
+  type_slots = scm_list_2(scm_symbol_data, (scm_from_latin1_symbol("env")));
+  scm_type_type = scm_make_foreign_object_type(
+    (scm_from_latin1_symbol("db-type")), type_slots, 0);
   scm_type_selection = scm_make_foreign_object_type(
     (scm_from_latin1_symbol("db-selection")), type_slots, 0);
   scm_c_define_procedure_c_init;
+  SCM m = scm_c_resolve_module("sph db");
+  scm_c_module_define(
+    m, "db-type-flag-virtual", (scm_from_uint(db_type_flag_virtual)));
   scm_c_define_procedure_c("db-open",
     1,
     1,
@@ -253,4 +351,14 @@ void db_guile_init() {
     0,
     scm_db_status_group_id_to_name,
     ("integer -> symbol"));
+  scm_c_define_procedure_c("db-type-create", 3, 1, 0, scm_db_type_create, "");
+  scm_c_define_procedure_c("db-type-delete", 1, 0, 0, scm_db_type_delete, "");
+  scm_c_define_procedure_c("db-type-get", 2, 0, 0, scm_db_type_get, "");
+  scm_c_define_procedure_c("db-type-id", 1, 0, 0, scm_db_type_id, "");
+  scm_c_define_procedure_c("db-type-name", 1, 0, 0, scm_db_type_name, "");
+  scm_c_define_procedure_c("db-type-indices", 1, 0, 0, scm_db_type_indices, "");
+  scm_c_define_procedure_c("db-type-fields", 1, 0, 0, scm_db_type_fields, "");
+  scm_c_define_procedure_c(
+    "db-type-virtual?", 1, 0, 0, scm_db_type_virtual_p, "");
+  scm_c_define_procedure_c("db-type-flags", 1, 0, 0, scm_db_type_flags, "");
 };

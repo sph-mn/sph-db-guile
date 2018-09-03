@@ -23,6 +23,15 @@
     db-txn-call-write
     db-txn-commit
     db-txn-write-begin
+    db-type-create
+    db-type-delete
+    db-type-fields
+    db-type-flags
+    db-type-get
+    db-type-id
+    db-type-indices
+    db-type-name
+    db-type-virtual?
     db-use
     db-use-p)
   (import

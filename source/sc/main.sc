@@ -31,19 +31,21 @@
     result SCM-EOL
     type (scm->db-type a)
     fields type:fields
-    fields-len type:fields-len)
-  (for ((set i 0) (< i fields-len) (set i (+ 1 i)))
+    fields-len type:fields-len
+    i fields-len)
+  (while i
     (set
+      i (- i 1)
       field (array-get fields i)
       result
       (scm-cons
-        (scm-cons (scm-from-utf8-stringn field.name field.name-len) (scm-from-uint8 field.type))
+        (scm-cons (scm-from-utf8-stringn field.name field.name-len) (db-field-type->scm field.type))
         result)))
   (return result))
 
 (define (scm-db-type-indices a) (SCM SCM)
   (declare
-    field db-field-t*
+    field db-field-t
     i-index db-indices-len-t
     i-field db-fields-len-t
     index db-index-t*
@@ -59,18 +61,17 @@
     type (scm->db-type a)
     indices-len type:indices-len
     indices type:indices)
-  (for ((set i-field 0) (< i indices-len) (set i-index (+ 1 i-index)))
+  (for ((set i-field 0) (< i-field indices-len) (set i-index (+ 1 i-index)))
     (set
-      index (array-get indices i-index)
+      index (+ i-index indices)
       scm-fields SCM-EOL)
     (for ((set i-field 0) (< i-field index:fields-len) (set i-field (+ 1 i-field)))
       (set
         field (array-get type:fields (array-get index:fields i-field))
         scm-fields
         (scm-cons
-          (scm-cons
-            (scm-from-uint (array-get index:fields i-field))
-            (scm-from-utf8-stringn field.name field.name-len))
+          (scm-list-2
+            (scm-from-utf8-stringn field.name field.name-len) (db-field-type->scm field.type))
           scm-fields)))
     (set result (scm-cons (scm-cons scm-fields result) result)))
   (return result))
@@ -207,23 +208,25 @@
     type db-type-t*)
   (set
     name (scm->utf8-string scm-name)
-    flags (scm->uint8 scm-flags)
+    flags
+    (if* (scm-is-undefined scm-flags) 0
+      (scm->uint8 scm-flags))
     fields-len (scm->uint (scm-length scm-fields)))
   (db-calloc fields fields-len (sizeof db-field-t))
   (for
     ( (set i 0) (< i fields-len)
       (set
         i (+ 1 i)
-        scm-field (scm-tail scm-fields)))
+        scm-fields (scm-tail scm-fields)))
     (set
       scm-field (scm-first scm-fields)
       field-name (scm->utf8-string (scm-first scm-field))
       field-name-len (strlen field-name)
-      field-type (scm->uint8 (scm-tail scm-field)))
+      field-type (scm->db-field-type (scm-tail scm-field)))
     (db-field-set (array-get fields i) field-type field-name field-name-len))
   (status-require (db-type-create (scm->db-env scm-env) name fields fields-len flags &type))
   (label exit
-    (status->scm-return (db-type->scm type))))
+    (status->scm-return (db-type->scm type (scm->db-env scm-env)))))
 
 (define (scm-db-type-get scm-env scm-name-or-id) (SCM SCM SCM)
   (declare
@@ -235,45 +238,53 @@
       type (db-type-get (scm->db-env scm-env) name))
     (set type (db-type-get-by-id (scm->db-env scm-env) (scm->uint scm-name-or-id))))
   (return
-    (if type (db-type->scm type)
+    (if* type (db-type->scm type (scm->db-env scm-env))
       SCM-BOOL-F)))
 
-(define (scm-db-type-delete scm-env scm-type) (SCM SCM SCM)
+(define (scm-db-type-delete scm-type) (SCM SCM)
   status-declare
-  (status-require (db-type-delete (scm->db-env scm-env) (scm->uint (: (scm->db-type scm-type) id))))
+  (status-require
+    (db-type-delete
+      (convert-type (scm-foreign-object-ref scm-type 1) db-env-t*) (: (scm->db-type scm-type) id)))
   (label exit
     (status->scm-return SCM-UNSPECIFIED)))
 
-#;(define (scm-db-record-select scm-txn scm-types scm-offset) (SCM SCM SCM SCM)
-  (if (scm-is-null scm-types) (return (db-selection->scm 0)))
-  status-declare
-  (define offset b32 (optional-offset scm-offset))
-  (define state db-record-selection-t* (malloc (sizeof db-record-selection-t)))
-  (if (not state) (status-set-id-goto db-status-id-memory))
-  (define types b8 (optional-types scm-types))
-  (status-require! (db-record-select (scm->db-txn scm-txn) types offset state))
-  (label exit
-    (if (and status-failure? (not (status-id-is? db-status-id-no-more-data)))
-      (begin
-        (free state)
-        (return (status->scm-error status))))
-    (active-selections-add! state db-guile-selection-type-record)
-    (return (db-selection->scm state))))
-
 (define (db-guile-init) void
   "prepare scm valuaes and register guile bindings"
-  (declare type-slots SCM)
+  (declare
+    type-slots SCM
+    scm-symbol-data SCM)
   (set
+    scm-symbol-data (scm-from-latin1-symbol "data")
+    scm-symbol-binary (scm-from-latin1-symbol "binary")
+    scm-symbol-string (scm-from-latin1-symbol "string")
+    scm-symbol-float32 (scm-from-latin1-symbol "float32")
+    scm-symbol-float64 (scm-from-latin1-symbol "float64")
+    scm-symbol-int8 (scm-from-latin1-symbol "int8")
+    scm-symbol-int16 (scm-from-latin1-symbol "int16")
+    scm-symbol-int32 (scm-from-latin1-symbol "int32")
+    scm-symbol-int64 (scm-from-latin1-symbol "int64")
+    scm-symbol-uint8 (scm-from-latin1-symbol "uint8")
+    scm-symbol-uint16 (scm-from-latin1-symbol "uint16")
+    scm-symbol-uint32 (scm-from-latin1-symbol "uint32")
+    scm-symbol-uint64 (scm-from-latin1-symbol "uint64")
+    scm-symbol-string8 (scm-from-latin1-symbol "string8")
+    scm-symbol-string16 (scm-from-latin1-symbol "string16")
+    scm-symbol-string32 (scm-from-latin1-symbol "string32")
+    scm-symbol-string64 (scm-from-latin1-symbol "string64")
     scm-rnrs-raise (scm-c-public-ref "rnrs exceptions" "raise")
-    type-slots (scm-list-1 (scm-from-latin1-symbol "data"))
+    type-slots (scm-list-1 scm-symbol-data)
     scm-type-env (scm-make-foreign-object-type (scm-from-latin1-symbol "db-env") type-slots 0)
     scm-type-txn (scm-make-foreign-object-type (scm-from-latin1-symbol "db-txn") type-slots 0)
-    scm-type-type (scm-make-foreign-object-type (scm-from-latin1-symbol "db-type") type-slots 0)
     scm-type-index (scm-make-foreign-object-type (scm-from-latin1-symbol "db-index") type-slots 0)
+    type-slots (scm-list-2 scm-symbol-data (scm-from-latin1-symbol "env"))
+    scm-type-type (scm-make-foreign-object-type (scm-from-latin1-symbol "db-type") type-slots 0)
     scm-type-selection
     (scm-make-foreign-object-type (scm-from-latin1-symbol "db-selection") type-slots 0))
   ; exports
   scm-c-define-procedure-c-init
+  (define m SCM (scm-c-resolve-module "sph db"))
+  (scm-c-module-define m "db-type-flag-virtual" (scm-from-uint db-type-flag-virtual))
   (scm-c-define-procedure-c
     "db-open" 1 1 0 scm-db-open "string:root [((key . value) ...):options] ->")
   (scm-c-define-procedure-c "db-close" 1 0 0 scm-db-close "deinitialises the database handle")
@@ -292,13 +303,12 @@
     2 0 0 scm-db-status-description "integer:id-status integer:id-group -> string")
   (scm-c-define-procedure-c
     "db-status-group-id->name" 1 0 0 scm-db-status-group-id->name "integer -> symbol")
-  (scm-c-define-procedure-c "db-type-create" 1 0 0 scm-db-type-create)
-  (scm-c-define-procedure-c "db-type-delete" 1 0 0 scm-db-type-delete)
-
-  (scm-c-define-procedure-c "db-type-get" 2 0 0 scm-db-type-get)
-  (scm-c-define-procedure-c "db-type-id" 1 0 0 scm-db-type-id)
-  (scm-c-define-procedure-c "db-type-name" 1 0 0 scm-db-type-name)
-  (scm-c-define-procedure-c "db-type-indices" 1 0 0 scm-db-type-indices)
-  (scm-c-define-procedure-c "db-type-fields" 1 0 0 scm-db-type-fields)
-  (scm-c-define-procedure-c "db-type-virtual?" 1 0 0 scm-db-type-virtual?)
-  (scm-c-define-procedure-c "db-type-flags" 1 0 0 scm-db-type-flags))
+  (scm-c-define-procedure-c "db-type-create" 3 1 0 scm-db-type-create "")
+  (scm-c-define-procedure-c "db-type-delete" 1 0 0 scm-db-type-delete "")
+  (scm-c-define-procedure-c "db-type-get" 2 0 0 scm-db-type-get "")
+  (scm-c-define-procedure-c "db-type-id" 1 0 0 scm-db-type-id "")
+  (scm-c-define-procedure-c "db-type-name" 1 0 0 scm-db-type-name "")
+  (scm-c-define-procedure-c "db-type-indices" 1 0 0 scm-db-type-indices "")
+  (scm-c-define-procedure-c "db-type-fields" 1 0 0 scm-db-type-fields "")
+  (scm-c-define-procedure-c "db-type-virtual?" 1 0 0 scm-db-type-virtual? "")
+  (scm-c-define-procedure-c "db-type-flags" 1 0 0 scm-db-type-flags ""))

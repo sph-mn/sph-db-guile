@@ -15,7 +15,7 @@
   (db-env->scm pointer) (scm-make-foreign-object-1 scm-type-env pointer)
   (db-txn->scm pointer) (scm-make-foreign-object-1 scm-type-txn pointer)
   (db-index->scm pointer) (scm-make-foreign-object-1 scm-type-index pointer)
-  (db-type->scm pointer) (scm-make-foreign-object-1 scm-type-type pointer)
+  (db-type->scm pointer env) (scm-make-foreign-object-2 scm-type-type pointer env)
   (db-selection->scm pointer) (scm-make-foreign-object-1 scm-type-selection pointer)
   (scm->db-env a) (convert-type (scm-foreign-object-ref a 0) db-env-t*)
   (scm->db-txn a) (convert-type (scm-foreign-object-ref a 0) db-txn-t*)
@@ -43,7 +43,63 @@
   scm-type-selection SCM
   scm-type-type SCM
   scm-type-index SCM
-  scm-rnrs-raise SCM)
+  scm-rnrs-raise SCM
+  scm-symbol-binary SCM
+  scm-symbol-string SCM
+  scm-symbol-float32 SCM
+  scm-symbol-float64 SCM
+  scm-symbol-int8 SCM
+  scm-symbol-int16 SCM
+  scm-symbol-int32 SCM
+  scm-symbol-int64 SCM
+  scm-symbol-uint8 SCM
+  scm-symbol-uint16 SCM
+  scm-symbol-uint32 SCM
+  scm-symbol-uint64 SCM
+  scm-symbol-string8 SCM
+  scm-symbol-string16 SCM
+  scm-symbol-string32 SCM
+  scm-symbol-string64 SCM)
+
+(define (scm->db-field-type a) (db-field-type-t SCM)
+  (case scm-is-eq a
+    (scm-symbol-binary (return 1))
+    (scm-symbol-string (return 3))
+    (scm-symbol-float32 (return 4))
+    (scm-symbol-float64 (return 6))
+    (scm-symbol-int16 (return 80))
+    (scm-symbol-int32 (return 112))
+    (scm-symbol-int64 (return 144))
+    (scm-symbol-int8 (return 48))
+    (scm-symbol-uint8 (return 32))
+    (scm-symbol-uint16 (return 64))
+    (scm-symbol-uint32 (return 96))
+    (scm-symbol-uint64 (return 128))
+    (scm-symbol-string8 (return 34))
+    (scm-symbol-string16 (return 66))
+    (scm-symbol-string32 (return 98))
+    (scm-symbol-string64 (return 130))
+    (else (return 0))))
+
+(define (db-field-type->scm a) (SCM db-field-type-t)
+  (case = a
+    (1 (return scm-symbol-binary))
+    (3 (return scm-symbol-string))
+    (4 (return scm-symbol-float32))
+    (6 (return scm-symbol-float64))
+    (80 (return scm-symbol-int16))
+    (112 (return scm-symbol-int32))
+    (144 (return scm-symbol-int64))
+    (48 (return scm-symbol-int8))
+    (32 (return scm-symbol-uint8))
+    (64 (return scm-symbol-uint16))
+    (96 (return scm-symbol-uint32))
+    (128 (return scm-symbol-uint64))
+    (34 (return scm-symbol-string8))
+    (66 (return scm-symbol-string16))
+    (98 (return scm-symbol-string32))
+    (130 (return scm-symbol-string64))
+    (else (return SCM-BOOL-F))))
 
 (define (scm-from-mdb-stat a) (SCM MDB-stat)
   "-> ((key . value) ...)"

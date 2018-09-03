@@ -1,15 +1,8 @@
 (define-test-module (test module sph db)
   (import
     (sph db)
-    (test helper sph db)
-    (sph common)
-    (sph char-set-vector)
-    (ice-9 threads)
-    (rnrs bytevectors)
-    (sph random-data)
-    (srfi srfi-41)
-    (sph stream)
-    (sph vector selection))
+    (sph list)
+    (test helper sph db))
 
   (define-test (db-env env)
     (assert-and
@@ -31,7 +24,17 @@
   (define-test (db-statistics env)
     (db-txn-call-read env (l (txn) (let (a (db-statistics txn)) (and (list? a) (every pair? a))))))
 
-  (define-procedure-tests tests (db-env) (db-txn) (db-statistics))
+  (define-test (db-type env)
+    (let*
+      ( (type-name "test-type")
+        (fields (q (("field-1" . int64) ("field-2" . uint8) ("field-3" . string))))
+        (type (db-type-create env type-name fields)))
+      (assert-and (equal? 1 (db-type-id type)) (equal? type-name (db-type-name type))
+        (equal? 0 (db-type-flags type)) (equal? fields (db-type-fields type))
+        (null? (db-type-indices type)) (not (not (db-type-get env "test-type")))
+        (begin (db-type-delete type) (not (db-type-get env "test-type"))))))
+
+  (define-procedure-tests tests (db-type) (db-env) (db-txn) (db-statistics))
 
   (l (settings)
     (let* ((test-runs 1) (settings (test-helper-db-default-test-settings settings)))

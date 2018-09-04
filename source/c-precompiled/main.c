@@ -55,22 +55,6 @@ SCM scm_db_type_fields(SCM a) {
   };
   return (result);
 };
-SCM db_index_to_scm_fields(db_index_t* a) {
-  db_field_t field;
-  db_type_t* type;
-  db_fields_len_t i;
-  SCM result;
-  result = SCM_EOL;
-  type = a->type;
-  for (i = 0; (i < a->fields_len); i = (1 + i)) {
-    field = (type->fields)[(a->fields)[i]];
-    result =
-      scm_cons((scm_cons((scm_from_uint(((a->fields)[i]))),
-                 (scm_from_utf8_stringn((field.name), (field.name_len))))),
-        result);
-  };
-  return (result);
-};
 SCM scm_db_type_indices(SCM scm_type) {
   db_indices_len_t i;
   db_index_t* indices;
@@ -85,9 +69,6 @@ SCM scm_db_type_indices(SCM scm_type) {
     result = scm_cons((db_index_to_scm_fields((i + indices))), result);
   };
   return (result);
-};
-SCM scm_db_index_fields(SCM scm_index) {
-  return ((db_index_to_scm_fields((scm_to_db_index(scm_index)))));
 };
 SCM scm_db_open(SCM scm_root, SCM scm_options) {
   status_declare;
@@ -245,13 +226,17 @@ SCM scm_db_type_create(SCM scm_env,
   SCM scm_field;
   db_type_t* type;
   name = scm_to_utf8_string(scm_name);
+  scm_dynwind_begin(0);
+  scm_dynwind_free(name);
   flags = (scm_is_undefined(scm_flags) ? 0 : scm_to_uint8(scm_flags));
   fields_len = scm_to_uint((scm_length(scm_fields)));
-  db_calloc(fields, fields_len, (sizeof(db_field_t)));
+  db_calloc(fields, fields_len, (sizeof(db_fields_len_t)));
+  scm_dynwind_free(fields);
   for (i = 0; (i < fields_len);
        i = (1 + i), scm_fields = scm_tail(scm_fields)) {
     scm_field = scm_first(scm_fields);
     field_name = scm_to_utf8_string((scm_first(scm_field)));
+    scm_dynwind_free(field_name);
     field_name_len = strlen(field_name);
     field_type = scm_to_db_field_type((scm_tail(scm_field)));
     db_field_set((fields[i]), field_type, field_name, field_name_len);
@@ -259,18 +244,22 @@ SCM scm_db_type_create(SCM scm_env,
   status_require((db_type_create(
     (scm_to_db_env(scm_env)), name, fields, fields_len, flags, (&type))));
 exit:
+  scm_dynwind_end();
   status_to_scm_return((db_type_to_scm(type, (scm_to_db_env(scm_env)))));
 };
 SCM scm_db_type_get(SCM scm_env, SCM scm_name_or_id) {
   db_type_t* type;
   uint8_t* name;
+  scm_dynwind_begin(0);
   if (scm_is_string(scm_name_or_id)) {
     name = scm_to_utf8_string(scm_name_or_id);
+    scm_dynwind_free(name);
     type = db_type_get((scm_to_db_env(scm_env)), name);
   } else {
     type = db_type_get_by_id(
       (scm_to_db_env(scm_env)), (scm_to_uint(scm_name_or_id)));
   };
+  scm_dynwind_end();
   return ((type ? db_type_to_scm(type, (scm_to_db_env(scm_env))) : SCM_BOOL_F));
 };
 SCM scm_db_type_delete(SCM scm_type) {
@@ -285,7 +274,6 @@ SCM scm_db_index_create(SCM scm_type, SCM scm_fields) {
   db_fields_len_t* fields;
   db_fields_len_t fields_len;
   db_index_t* index;
-  fields = 0;
   status_require(
     (scm_to_field_offsets(scm_type, scm_fields, (&fields), (&fields_len))));
   status_require((db_index_create((scm_type_to_db_env(scm_type)),
@@ -294,7 +282,6 @@ SCM scm_db_index_create(SCM scm_type, SCM scm_fields) {
     fields_len,
     (&index))));
 exit:
-  free(fields);
   status_to_scm_return(
     (db_index_to_scm(index, (scm_type_to_db_env(scm_type)))));
 };
@@ -307,7 +294,6 @@ SCM scm_db_index_get(SCM scm_type, SCM scm_fields) {
     (scm_to_field_offsets(scm_type, scm_fields, (&fields), (&fields_len))));
   index = db_index_get((scm_to_db_type(scm_type)), fields, fields_len);
 exit:
-  free(fields);
   status_to_scm_return(
     (index ? db_index_to_scm(index, (scm_type_to_db_env(scm_type)))
            : SCM_BOOL_F));
@@ -325,6 +311,38 @@ SCM scm_db_index_rebuild(SCM scm_index) {
     (scm_index_to_db_env(scm_index)), (scm_to_db_index(scm_index)))));
 exit:
   status_to_scm_return(SCM_UNSPECIFIED);
+};
+SCM scm_db_index_fields(SCM scm_index) {
+  return ((db_index_to_scm_fields((scm_to_db_index(scm_index)))));
+};
+SCM scm_db_record_create(SCM scm_txn, SCM scm_type, SCM scm_values) {
+  status_declare;
+  db_record_values_declare(values);
+  SCM scm_value;
+  db_fields_len_t field_offset;
+  db_fields_len_t i;
+  db_id_t result_id;
+  db_type_t* type;
+  type = scm_to_db_type(scm_type);
+  scm_dynwind_begin(0);
+  status_require((db_record_values_new(type, (&values))));
+  scm_dynwind_unwind_handler(
+    db_record_values_free, (&values), SCM_F_WIND_EXPLICITLY);
+  /* set field values */
+  i = 0;
+  while (!scm_is_null(scm_values)) {
+    status_require(
+      (scm_to_field_offset((scm_first(scm_values)), type, (&field_offset))));
+    status_require((
+      scm_to_field_data((scm_first(scm_values)), field_data, field_data_size)));
+    db_record_values_set((&values), field_offset, field_data, field_data_size);
+    scm_values = scm_tail(scm_values);
+  };
+  /* save */
+  status_require((db_record_create(txn, values, (&result_id))));
+exit:
+  scm_dynwind_end();
+  status_to_scm_return((scm_from_uint(id)));
 };
 /** prepare scm valuaes and register guile bindings */
 void db_guile_init() {

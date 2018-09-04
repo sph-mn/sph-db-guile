@@ -43,25 +43,6 @@
         result)))
   (return result))
 
-(define (db-index->scm-fields a) (SCM db-index-t*)
-  (declare
-    field db-field-t
-    type db-type-t*
-    i db-fields-len-t
-    result SCM)
-  (set
-    result SCM-EOL
-    type a:type)
-  (for ((set i 0) (< i a:fields-len) (set i (+ 1 i)))
-    (set
-      field (array-get type:fields (array-get a:fields i))
-      result
-      (scm-cons
-        (scm-cons
-          (scm-from-uint (array-get a:fields i)) (scm-from-utf8-stringn field.name field.name-len))
-        result)))
-  (return result))
-
 (define (scm-db-type-indices scm-type) (SCM SCM)
   (declare
     i db-indices-len-t
@@ -77,9 +58,6 @@
   (for ((set i 0) (< i indices-len) (set i (+ 1 i)))
     (set result (scm-cons (db-index->scm-fields (+ i indices)) result)))
   (return result))
-
-(define (scm-db-index-fields scm-index) (SCM SCM)
-  (return (db-index->scm-fields (scm->db-index scm-index))))
 
 (define (scm-db-open scm-root scm-options) (SCM SCM SCM)
   status-declare
@@ -211,13 +189,16 @@
     name uint8-t*
     scm-field SCM
     type db-type-t*)
+  (set name (scm->utf8-string scm-name))
+  (scm-dynwind-begin 0)
+  (scm-dynwind-free name)
   (set
-    name (scm->utf8-string scm-name)
     flags
     (if* (scm-is-undefined scm-flags) 0
       (scm->uint8 scm-flags))
     fields-len (scm->uint (scm-length scm-fields)))
-  (db-calloc fields fields-len (sizeof db-field-t))
+  (db-calloc fields fields-len (sizeof db-fields-len-t))
+  (scm-dynwind-free fields)
   (for
     ( (set i 0) (< i fields-len)
       (set
@@ -225,23 +206,29 @@
         scm-fields (scm-tail scm-fields)))
     (set
       scm-field (scm-first scm-fields)
-      field-name (scm->utf8-string (scm-first scm-field))
+      field-name (scm->utf8-string (scm-first scm-field)))
+    (scm-dynwind-free field-name)
+    (set
       field-name-len (strlen field-name)
       field-type (scm->db-field-type (scm-tail scm-field)))
     (db-field-set (array-get fields i) field-type field-name field-name-len))
   (status-require (db-type-create (scm->db-env scm-env) name fields fields-len flags &type))
   (label exit
+    (scm-dynwind-end)
     (status->scm-return (db-type->scm type (scm->db-env scm-env)))))
 
 (define (scm-db-type-get scm-env scm-name-or-id) (SCM SCM SCM)
   (declare
     type db-type-t*
     name uint8-t*)
+  (scm-dynwind-begin 0)
   (if (scm-is-string scm-name-or-id)
-    (set
-      name (scm->utf8-string scm-name-or-id)
-      type (db-type-get (scm->db-env scm-env) name))
+    (begin
+      (set name (scm->utf8-string scm-name-or-id))
+      (scm-dynwind-free name)
+      (set type (db-type-get (scm->db-env scm-env) name)))
     (set type (db-type-get-by-id (scm->db-env scm-env) (scm->uint scm-name-or-id))))
+  (scm-dynwind-end)
   (return
     (if* type (db-type->scm type (scm->db-env scm-env))
       SCM-BOOL-F)))
@@ -258,12 +245,10 @@
     fields db-fields-len-t*
     fields-len db-fields-len-t
     index db-index-t*)
-  (set fields 0)
   (status-require (scm->field-offsets scm-type scm-fields &fields &fields-len))
   (status-require
     (db-index-create (scm-type->db-env scm-type) (scm->db-type scm-type) fields fields-len &index))
   (label exit
-    (free fields)
     (status->scm-return (db-index->scm index (scm-type->db-env scm-type)))))
 
 (define (scm-db-index-get scm-type scm-fields) (SCM SCM SCM)
@@ -275,7 +260,6 @@
   (status-require (scm->field-offsets scm-type scm-fields &fields &fields-len))
   (set index (db-index-get (scm->db-type scm-type) fields fields-len))
   (label exit
-    (free fields)
     (status->scm-return
       (if* index (db-index->scm index (scm-type->db-env scm-type))
         SCM-BOOL-F))))
@@ -291,6 +275,96 @@
   (status-require (db-index-rebuild (scm-index->db-env scm-index) (scm->db-index scm-index)))
   (label exit
     (status->scm-return SCM-UNSPECIFIED)))
+
+(define (scm-db-index-fields scm-index) (SCM SCM)
+  (return (db-index->scm-fields (scm->db-index scm-index))))
+
+(define (scm-string->field-data scm-a result-data result-size) (status-t SCM void** size-t*)
+  "strings are stored without a trailing 0 because the size is stored with it"
+  status-declare
+  (declare
+    data uint8-t*
+    a uint8-t*
+    a-size size-t)
+  ; If lenp is not NULL, the string is not null terminated, and the length of the returned string is returned in lenp
+  (scm-dynwind-begin 0)
+  (set a (scm->utf8-stringn scm-a &a-size))
+  (scm-dynwind-free a)
+  (db-calloc data size 1)
+  ; use mempcy. the only guile binding that allows writing to a buffer is scm_to_locale_stringbuf,
+  ; and it is current locale dependent. it uses memcpy similarly internally
+  (memcpy data a size)
+  (set
+    result:data data
+    result:size size)
+  (label exit
+    (scm-dynwind-end)
+    (return status)))
+
+(define (scm->field-data scm-a field-type result-data result-size)
+  (status-t SCM db-field-type-t void** size-t*)
+  "the caller has to free the data field in the result struct"
+  status-declare
+  (declare
+    serialised SCM
+    size size-t
+    data void*)
+  (scm-dynwind-begin 0)
+  (cond
+    ( (scm-is-bytevector scm-a)
+      (set size (SCM-BYTEVECTOR-LENGTH a))
+      (db-calloc data size 1)
+      (scm-dynwind-unwind-handler free data 0)
+      (memcpy (+ db-guile-intern-type-size data) (SCM-BYTEVECTOR-CONTENTS a) size)
+      (struct-pointer-set result
+        data data
+        size size))
+    ((scm-is-string scm-a) (scm-string->db-data scm-a result-data result-size))
+    ( (scm-is-integer scm-a)
+      (set size (+ db-guile-intern-type-size (sizeof db-data-integer-t)))
+      (db-calloc data size 1)
+      (db-scm->data-integer a)
+      (struct-pointer-set result
+        data data
+        size size))
+    ( (scm-is-rational scm-aa)
+      (set size (+ db-guile-intern-type-size (sizeof double))) (db-calloc size 1) (scm->double a))
+    (else
+      (set serialised (scm-object->string a db-scm-write))
+      (scm-string->field-data serialised result-data result-size)))
+  (label exit
+    (scm-dynwind-end)
+    (return status)))
+
+(define (scm-db-record-create scm-txn scm-type scm-values) (SCM SCM SCM SCM)
+  status-declare
+  (db-record-values-declare values)
+  (declare
+    field-data void*
+    field-data-size size-t
+    scm-value SCM
+    field-offset db-fields-len-t
+    i db-fields-len-t
+    result-id db-id-t
+    type db-type-t*)
+  (set type (scm->db-type scm-type))
+  (scm-dynwind-begin 0)
+  (status-require (db-record-values-new type &values))
+  (scm-dynwind-unwind-handler db-record-values-free &values SCM-F-WIND-EXPLICITLY)
+  (sc-comment "set field values")
+  (while (not (scm-is-null scm-values))
+    ; ((integer/string:field-id . any:data))
+    (status-require (scm->field-offset (scm-first scm-values) type &field-offset))
+    (status-require
+      (scm->field-data
+        (scm-first scm-values) (: (+ field-offset type:fields) type) &field-data &field-data-size))
+    (db-record-values-set &values field-offset field-data field-data-size)
+    (set scm-values (scm-tail scm-values)))
+  (sc-comment "save")
+  (status-require (db-record-create txn values &result-id))
+  (label exit
+    (scm-dynwind-end)
+    (status->scm-return (scm-from-uint id))))
 
 (define (db-guile-init) void
   "prepare scm valuaes and register guile bindings"

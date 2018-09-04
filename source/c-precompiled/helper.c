@@ -56,6 +56,30 @@ SCM scm_symbol_string8;
 SCM scm_symbol_string16;
 SCM scm_symbol_string32;
 SCM scm_symbol_string64;
+/** get the db-field for either a field offset integer or field name */
+status_t
+scm_to_field_offset(SCM scm_a, db_type_t* type, db_fields_len_t* result) {
+  status_declare;
+  db_field_t* field;
+  uint8_t* field_name;
+  field_name = 0;
+  if (scm_is_integer(scm_a)) {
+    *result = scm_to_uint(scm_a);
+  } else {
+    field_name = scm_to_utf8_string(scm_a);
+    field = db_type_field_get(type, field_name);
+    free(field_name);
+    if (field) {
+      *result = field->index;
+    } else {
+      status_set_both_goto(
+        db_status_group_db_guile, db_status_id_field_name_not_found);
+    };
+  };
+exit:
+  return (status);
+};
+/** memory for result is handled by gc */
 status_t scm_to_field_offsets(SCM scm_type,
   SCM scm_fields,
   db_fields_len_t** result,
@@ -70,22 +94,12 @@ status_t scm_to_field_offsets(SCM scm_type,
   db_type_t* type;
   fields_len = scm_to_uint((scm_length(scm_fields)));
   type = scm_to_db_type(scm_type);
-  db_calloc(fields, fields_len, (sizeof(db_fields_len_t)));
+  fields = scm_gc_calloc((fields_len * sizeof(db_fields_len_t)), "fields");
   for (i = 0; (i < fields_len);
        i = (1 + i), scm_fields = scm_tail(scm_fields)) {
     scm_field = scm_first(scm_fields);
-    if (scm_is_string(scm_field)) {
-      field_name = scm_to_utf8_string(scm_field);
-      field = db_type_field_get(type, field_name);
-      if (field) {
-        fields[i] = field->index;
-      } else {
-        status_set_both_goto(
-          db_status_group_db_guile, db_status_id_field_name_not_found);
-      };
-    } else {
-      fields[i] = scm_to_uint(scm_field);
-    };
+    status_require(
+      (scm_to_field_offset((scm_first(scm_fields)), type, (i + fields))));
   };
   *result = fields;
   *result_len = fields_len;
@@ -214,5 +228,21 @@ SCM scm_from_mdb_stat(MDB_stat a) {
     (scm_from_uint((a.ms_overflow_pages))),
     b);
   return (b);
+};
+SCM db_index_to_scm_fields(db_index_t* a) {
+  db_field_t field;
+  db_type_t* type;
+  db_fields_len_t i;
+  SCM result;
+  result = SCM_EOL;
+  type = a->type;
+  for (i = 0; (i < a->fields_len); i = (1 + i)) {
+    field = (type->fields)[(a->fields)[i]];
+    result =
+      scm_cons((scm_cons((scm_from_uint(((a->fields)[i]))),
+                 (scm_from_utf8_stringn((field.name), (field.name_len))))),
+        result);
+  };
+  return (result);
 };
 #include "./selections.c"

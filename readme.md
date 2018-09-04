@@ -64,6 +64,16 @@ to get a type handle where needed
 (db-type-get env "test-type")
 ```
 
+## create an index
+; integer field offsets or names supported
+(define fields (list 1 "field-3"))
+(define index (db-index-create type index-fields))
+
+to get a type handle where needed
+```
+(db-index-get type index-fields)
+```
+
 ## create relations
 
 relations are between records specified by their ids and they are not checked for existence.

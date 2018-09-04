@@ -65,8 +65,27 @@
   scm-symbol-string32 SCM
   scm-symbol-string64 SCM)
 
+(define (scm->field-offset scm-a type result) (status-t SCM db-type-t* db-fields-len-t*)
+  "get the db-field for either a field offset integer or field name"
+  status-declare
+  (declare
+    field db-field-t*
+    field-name uint8-t*)
+  (set field-name 0)
+  (if (scm-is-integer scm-a) (set *result (scm->uint scm-a))
+    (begin
+      (set
+        field-name (scm->utf8-string scm-a)
+        field (db-type-field-get type field-name))
+      (free field-name)
+      (if field (set *result field:index)
+        (status-set-both-goto db-status-group-db-guile db-status-id-field-name-not-found))))
+  (label exit
+    (return status)))
+
 (define (scm->field-offsets scm-type scm-fields result result-len)
   (status-t SCM SCM db-fields-len-t** db-fields-len-t*)
+  "memory for result is handled by gc"
   status-declare
   (declare
     scm-field SCM
@@ -78,22 +97,15 @@
     type db-type-t*)
   (set
     fields-len (scm->uint (scm-length scm-fields))
-    type (scm->db-type scm-type))
-  (db-calloc fields fields-len (sizeof db-fields-len-t))
+    type (scm->db-type scm-type)
+    fields (scm-gc-calloc (* fields-len (sizeof db-fields-len-t)) "fields"))
   (for
     ( (set i 0) (< i fields-len)
       (set
         i (+ 1 i)
         scm-fields (scm-tail scm-fields)))
     (set scm-field (scm-first scm-fields))
-    (if (scm-is-string scm-field)
-      (begin
-        (set
-          field-name (scm->utf8-string scm-field)
-          field (db-type-field-get type field-name))
-        (if field (set (array-get fields i) field:index)
-          (status-set-both-goto db-status-group-db-guile db-status-id-field-name-not-found)))
-      (set (array-get fields i) (scm->uint scm-field))))
+    (status-require (scm->field-offset (scm-first scm-fields) type (+ i fields))))
   (set
     *result fields
     *result-len fields-len)
@@ -174,5 +186,24 @@
     b (scm-acons (scm-from-latin1-symbol "ms-leaf-pages") (scm-from-uint a.ms-leaf-pages) b)
     b (scm-acons (scm-from-latin1-symbol "ms-overflow-pages") (scm-from-uint a.ms-overflow-pages) b))
   (return b))
+
+(define (db-index->scm-fields a) (SCM db-index-t*)
+  (declare
+    field db-field-t
+    type db-type-t*
+    i db-fields-len-t
+    result SCM)
+  (set
+    result SCM-EOL
+    type a:type)
+  (for ((set i 0) (< i a:fields-len) (set i (+ 1 i)))
+    (set
+      field (array-get type:fields (array-get a:fields i))
+      result
+      (scm-cons
+        (scm-cons
+          (scm-from-uint (array-get a:fields i)) (scm-from-utf8-stringn field.name field.name-len))
+        result)))
+  (return result))
 
 (pre-include "./selections.c")

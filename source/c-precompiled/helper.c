@@ -1,7 +1,7 @@
 /* bindings that arent part of the exported scheme api and debug features.
 separate file because it is easier to start from the exported features */
+enum { status_id_field_name_not_found, status_id_field_value_invalid };
 #define db_status_group_db_guile db_status_group_last
-#define db_status_id_field_name_not_found db_status_id_last
 /** SCM uint8_t* SCM -> unspecified */
 #define scm_options_get(options, name, result) \
   result = scm_assoc_ref(scm_options, (scm_from_latin1_symbol(name))); \
@@ -66,14 +66,14 @@ scm_to_field_offset(SCM scm_a, db_type_t* type, db_fields_len_t* result) {
   if (scm_is_integer(scm_a)) {
     *result = scm_to_uint(scm_a);
   } else {
-    field_name = scm_to_utf8_string(scm_a);
+    field_name = scm_to_utf8_stringn(scm_a, 0);
     field = db_type_field_get(type, field_name);
     free(field_name);
     if (field) {
       *result = field->index;
     } else {
       status_set_both_goto(
-        db_status_group_db_guile, db_status_id_field_name_not_found);
+        db_status_group_db_guile, status_id_field_name_not_found);
     };
   };
 exit:
@@ -110,7 +110,7 @@ exit:
 uint8_t* db_guile_status_description(status_t a) {
   char* b;
   if (db_status_group_db_guile == a.group) {
-    if (db_status_id_field_name_not_found == a.id) {
+    if (status_id_field_name_not_found == a.id) {
       b = "no field found with given name";
     } else {
       b = "";
@@ -124,7 +124,7 @@ uint8_t* db_guile_status_description(status_t a) {
 uint8_t* db_guile_status_name(status_t a) {
   char* b;
   if (db_status_group_db_guile == a.group) {
-    if (db_status_id_field_name_not_found == a.id) {
+    if (status_id_field_name_not_found == a.id) {
       b = "field-not-found";
     } else {
       b = "";
@@ -134,13 +134,12 @@ uint8_t* db_guile_status_name(status_t a) {
   };
   return (((uint8_t*)(b)));
 };
+/** float32 not supported by guile */
 db_field_type_t scm_to_db_field_type(SCM a) {
   if (scm_is_eq(scm_symbol_binary, a)) {
     return (1);
   } else if (scm_is_eq(scm_symbol_string, a)) {
     return (3);
-  } else if (scm_is_eq(scm_symbol_float32, a)) {
-    return (4);
   } else if (scm_is_eq(scm_symbol_float64, a)) {
     return (6);
   } else if (scm_is_eq(scm_symbol_int16, a)) {
@@ -244,5 +243,101 @@ SCM db_index_to_scm_fields(db_index_t* a) {
         result);
   };
   return (result);
+};
+/** result-data has to be freed by the caller only if result-is-ref is true */
+status_t scm_to_field_data(SCM scm_a,
+  db_field_type_t field_type,
+  void** result_data,
+  size_t* result_size,
+  boolean* result_is_ref) {
+  status_declare;
+  size_t size;
+  void* data;
+  scm_dynwind_begin(0);
+  if (scm_is_bytevector(scm_a)) {
+    if (!(db_field_type_binary == field_type)) {
+      status_set_id_goto(status_id_field_value_invalid);
+    };
+    *result_is_ref = 1;
+    *result_data = SCM_BYTEVECTOR_CONTENTS(scm_a);
+    *result_size = SCM_BYTEVECTOR_LENGTH(scm_a);
+  } else if (scm_is_string(scm_a)) {
+    size = scm_c_string_utf8_length(scm_a);
+    if (db_field_type_string == field_type) {
+      1;
+    } else if (db_field_type_string64 == field_type) {
+      if (8 < size) {
+        status_set_id_goto(status_id_field_value_invalid);
+      };
+    } else if (db_field_type_string32 == field_type) {
+      if (4 < size) {
+        status_set_id_goto(status_id_field_value_invalid);
+      };
+    } else if (db_field_type_string16 == field_type) {
+      if (2 < size) {
+        status_set_id_goto(status_id_field_value_invalid);
+      };
+    } else if (db_field_type_string8 == field_type) {
+      if (1 < size) {
+        status_set_id_goto(status_id_field_value_invalid);
+      };
+    } else {
+      status_set_id_goto(status_id_field_value_invalid);
+    };
+    *result_is_ref = 0;
+    *result_data = scm_to_utf8_stringn(scm_a, 0);
+    *result_size = size;
+  } else if (scm_is_integer(scm_a)) {
+    db_malloc(data, 8);
+    scm_dynwind_unwind_handler(free, data, 0);
+    if (db_field_type_uint64 == field_type) {
+      *((uint64_t*)(data)) = scm_to_uint64(scm_a);
+      size = 8;
+    } else if (db_field_type_uint32 == field_type) {
+      *((uint32_t*)(data)) = scm_to_uint32(scm_a);
+      size = 4;
+    } else if (db_field_type_uint16 == field_type) {
+      *((uint16_t*)(data)) = scm_to_uint16(scm_a);
+      size = 2;
+    } else if (db_field_type_uint8 == field_type) {
+      *((uint16_t*)(data)) = scm_to_uint8(scm_a);
+      size = 1;
+    } else if (db_field_type_int64 == field_type) {
+      *((int64_t*)(data)) = scm_to_int64(scm_a);
+      size = 8;
+    } else if (db_field_type_int32 == field_type) {
+      *((int32_t*)(data)) = scm_to_int32(scm_a);
+      size = 4;
+    } else if (db_field_type_int16 == field_type) {
+      *((int16_t*)(data)) = scm_to_int16(scm_a);
+      size = 2;
+    } else if (db_field_type_int8 == field_type) {
+      *((int8_t*)(data)) = scm_to_int8(scm_a);
+      size = 1;
+    } else {
+      status_set_id_goto(status_id_field_value_invalid);
+    };
+    *result_is_ref = 0;
+    *result_data = data;
+    *result_size = size;
+  } else if (scm_is_rational(scm_a)) {
+    db_malloc(data, 8);
+    scm_dynwind_unwind_handler(free, data, 0);
+    if (db_field_type_float64 == field_type) {
+      *((double*)(data)) = scm_to_double(scm_a);
+      size = 8;
+    } else {
+      /* for some reason there is no scm->float */
+      status_set_id_goto(status_id_field_value_invalid);
+    };
+    *result_is_ref = 0;
+    *result_data = data;
+    *result_size = size;
+  } else {
+    status_set_id_goto(status_id_field_value_invalid);
+  };
+exit:
+  scm_dynwind_end();
+  return (status);
 };
 #include "./selections.c"

@@ -2,9 +2,10 @@
   "bindings that arent part of the exported scheme api and debug features."
   "separate file because it is easier to start from the exported features")
 
+(enum (status-id-field-name-not-found status-id-field-value-invalid))
+
 (pre-define
   db-status-group-db-guile db-status-group-last
-  db-status-id-field-name-not-found db-status-id-last
   (scm-options-get options name result)
   (begin
     "SCM uint8_t* SCM -> unspecified"
@@ -75,11 +76,11 @@
   (if (scm-is-integer scm-a) (set *result (scm->uint scm-a))
     (begin
       (set
-        field-name (scm->utf8-string scm-a)
+        field-name (scm->utf8-stringn scm-a 0)
         field (db-type-field-get type field-name))
       (free field-name)
       (if field (set *result field:index)
-        (status-set-both-goto db-status-group-db-guile db-status-id-field-name-not-found))))
+        (status-set-both-goto db-status-group-db-guile status-id-field-name-not-found))))
   (label exit
     (return status)))
 
@@ -118,7 +119,7 @@
   (case = a.group
     (db-status-group-db-guile
       (case = a.id
-        (db-status-id-field-name-not-found (set b "no field found with given name"))
+        (status-id-field-name-not-found (set b "no field found with given name"))
         (else (set b ""))))
     (else (set b (db-status-description a))))
   (return (convert-type b uint8-t*)))
@@ -129,16 +130,16 @@
   (case = a.group
     (db-status-group-db-guile
       (case = a.id
-        (db-status-id-field-name-not-found (set b "field-not-found"))
+        (status-id-field-name-not-found (set b "field-not-found"))
         (else (set b ""))))
     (else (set b (db-status-name a))))
   (return (convert-type b uint8-t*)))
 
 (define (scm->db-field-type a) (db-field-type-t SCM)
+  "float32 not supported by guile"
   (case scm-is-eq a
     (scm-symbol-binary (return 1))
     (scm-symbol-string (return 3))
-    (scm-symbol-float32 (return 4))
     (scm-symbol-float64 (return 6))
     (scm-symbol-int16 (return 80))
     (scm-symbol-int32 (return 112))
@@ -204,6 +205,152 @@
         (scm-cons
           (scm-from-uint (array-get a:fields i)) (scm-from-utf8-stringn field.name field.name-len))
         result)))
+  (return result))
+
+(define (scm->field-data scm-a field-type result-data result-size result-is-ref)
+  (status-t SCM db-field-type-t void** size-t* boolean*)
+  "result-data has to be freed by the caller only if result-is-ref is true"
+  status-declare
+  (declare
+    size size-t
+    data void*)
+  (scm-dynwind-begin 0)
+  (cond
+    ( (scm-is-bytevector scm-a)
+      (if (not (= db-field-type-binary field-type))
+        (status-set-id-goto status-id-field-value-invalid))
+      (set
+        *result-is-ref #t
+        *result-data (SCM-BYTEVECTOR-CONTENTS scm-a)
+        *result-size (SCM-BYTEVECTOR-LENGTH scm-a)))
+    ( (scm-is-string scm-a)
+      (set size (scm-c-string-utf8-length scm-a))
+      (case = field-type
+        (db-field-type-string #t)
+        (db-field-type-string64 (if (< 8 size) (status-set-id-goto status-id-field-value-invalid)))
+        (db-field-type-string32 (if (< 4 size) (status-set-id-goto status-id-field-value-invalid)))
+        (db-field-type-string16 (if (< 2 size) (status-set-id-goto status-id-field-value-invalid)))
+        (db-field-type-string8 (if (< 1 size) (status-set-id-goto status-id-field-value-invalid)))
+        (else (status-set-id-goto status-id-field-value-invalid)))
+      (set
+        *result-is-ref #f
+        *result-data (scm->utf8-stringn scm-a 0)
+        *result-size size))
+    ( (scm-is-integer scm-a)
+      (db-malloc data 8)
+      (scm-dynwind-unwind-handler free data 0)
+      (case = field-type
+        (db-field-type-uint64
+          (set
+            (pointer-get (convert-type data uint64-t*)) (scm->uint64 scm-a)
+            size 8))
+        (db-field-type-uint32
+          (set
+            (pointer-get (convert-type data uint32-t*)) (scm->uint32 scm-a)
+            size 4))
+        (db-field-type-uint16
+          (set
+            (pointer-get (convert-type data uint16-t*)) (scm->uint16 scm-a)
+            size 2))
+        (db-field-type-uint8
+          (set
+            (pointer-get (convert-type data uint16-t*)) (scm->uint8 scm-a)
+            size 1))
+        (db-field-type-int64
+          (set
+            (pointer-get (convert-type data int64-t*)) (scm->int64 scm-a)
+            size 8))
+        (db-field-type-int32
+          (set
+            (pointer-get (convert-type data int32-t*)) (scm->int32 scm-a)
+            size 4))
+        (db-field-type-int16
+          (set
+            (pointer-get (convert-type data int16-t*)) (scm->int16 scm-a)
+            size 2))
+        (db-field-type-int8
+          (set
+            (pointer-get (convert-type data int8-t*)) (scm->int8 scm-a)
+            size 1))
+        (else (status-set-id-goto status-id-field-value-invalid)))
+      (set
+        *result-is-ref #f
+        *result-data data
+        *result-size size))
+    ( (scm-is-rational scm-a)
+      (db-malloc data 8)
+      (scm-dynwind-unwind-handler free data 0)
+      (case = field-type
+        (db-field-type-float64
+          (set
+            (pointer-get (convert-type data double*)) (scm->double scm-a)
+            size 8))
+        (else
+          (sc-comment "for some reason there is no scm->float")
+          (status-set-id-goto status-id-field-value-invalid)))
+      (set
+        *result-is-ref #f
+        *result-data data
+        *result-size size))
+    (else (status-set-id-goto status-id-field-value-invalid)))
+  (label exit
+    (scm-dynwind-end)
+    (return status)))
+
+#;(define (db-ids->scm a) (SCM db-ids-t)
+  (define b SCM SCM-EOL)
+  (while (db-ids-in-range a)
+    (set b (scm-cons (scm-from-uint (db-ids-first a)) b))
+    (db-ids-forward a))
+  (return result))
+
+#;(define (scm->db-ids scm-a result) (status-t SCM db-ids-t*)
+  "result is allocated by this routine and caller frees"
+  status-declare
+  (declare b db-ids-t)
+  (set b *result)
+  (while (not (scm-is-null scm-a))
+    (db-ids-add b (scm-from-uint (scm-first scm-a)))
+    (if b
+      (set
+        *result b
+        scm-a (scm-tail scm-a))
+      (begin
+        (db-ids-destroy *result)
+        (db-status-set-id-goto db-status-id-memory))))
+  (label exit
+    (return status)))
+
+#;(define (db-relations->scm a convert-data)
+  (SCM db-data-records-t* (function-pointer SCM db-data-record-t))
+  (define result SCM SCM-EOL)
+  (define record db-data-record-t)
+  (define data SCM)
+  (while a
+    (set
+      record (db-data-records-first a)
+      data
+      (if* record.size (convert-data record)
+        scm-bytevector-null)
+      result (scm-cons (scm-vector (scm-list-2 (db-id->scm record.id) data)) result)
+      a (db-data-records-rest a)))
+  (return result))
+
+#;(define (db-relations->scm a) (SCM db-relations-t*)
+  (define result SCM SCM-EOL)
+  (define record db-relation-record-t)
+  (while a
+    (set
+      record (db-relations-first a)
+      result
+      (scm-cons
+        (scm-vector
+          (scm-list-4
+            (db-id->scm (struct-get record left))
+            (db-id->scm (struct-get record right))
+            (db-id->scm (struct-get record label)) (db-id->scm (struct-get record ordinal))))
+        result)
+      a (db-relations-rest a)))
   (return result))
 
 (pre-include "./selections.c")

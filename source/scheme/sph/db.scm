@@ -11,6 +11,7 @@
     db-index-get
     db-index-rebuild
     db-open
+    db-record-create
     db-relation-field-names
     db-relation-label
     db-relation-layout
@@ -52,10 +53,7 @@
       string-index
       symbol-append
       load-extension
-      with-throw-handler
-      ; used in the shared library
-      write
-      read))
+      with-throw-handler))
 
   (define sph-db-description
     "bindings to use sph-db.

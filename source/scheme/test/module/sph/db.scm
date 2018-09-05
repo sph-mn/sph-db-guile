@@ -41,7 +41,18 @@
             (begin (db-index-rebuild index) #t) (begin (db-index-delete index) #t)
             (not (db-index-get type index-fields)))))))
 
-  (define-procedure-tests tests (db-index) (db-type) (db-env) (db-txn) (db-statistics))
+  (define-test (db-record-create env)
+    (test-helper-type-create-1 env
+      (l (type-name type-fields type)
+        (db-txn-call-write env
+          (l (txn)
+            (let*
+              ( (values (q ((2 . "test") ("field-1" . 123456789) (1 . 255))))
+                (id (db-record-create txn type values)))
+              (and (= 1 id) (integer? id))))))))
+
+  (define-procedure-tests tests (db-record-create)
+    (db-type) (db-index) (db-env) (db-txn) (db-statistics))
 
   (l (settings)
     (let* ((test-runs 1) (settings (test-helper-db-default-test-settings settings)))

@@ -1,11 +1,28 @@
 /* bindings that arent part of the exported scheme api and debug features.
 separate file because it is easier to start from the exported features */
-enum { status_id_field_name_not_found, status_id_field_value_invalid };
-#define db_status_group_db_guile db_status_group_last
-/** SCM uint8_t* SCM -> unspecified */
+enum {
+  status_id_field_name_not_found,
+  status_id_field_value_invalid,
+  status_id_invalid_argument
+};
+/** SCM uint8_t* SCM -> unspecified
+    get value for field with name from options alist and set result
+    to it or undefined if it doesnt exist */
 #define scm_options_get(options, name, result) \
   result = scm_assoc_ref(scm_options, (scm_from_latin1_symbol(name))); \
   result = (scm_is_pair(result) ? scm_tail(result) : SCM_UNDEFINED)
+#define define_db_relations_to_scm_retrieve(field_name) \
+  SCM db_relations_to_scm_retrieve_##field_name(db_relations_t a) { \
+    SCM b; \
+    db_relation_t record; \
+    b = SCM_EOL; \
+    while (db_relations_in_range(a)) { \
+      record = db_relations_get(a); \
+      b = scm_cons((scm_from_uint((record.field_name))), b); \
+      db_relations_forward(a); \
+    }; \
+    return (b); \
+  }
 #define db_env_to_scm(pointer) scm_make_foreign_object_1(scm_type_env, pointer)
 #define db_txn_to_scm(pointer) scm_make_foreign_object_1(scm_type_txn, pointer)
 #define db_index_to_scm(pointer, env) \
@@ -14,6 +31,10 @@ enum { status_id_field_name_not_found, status_id_field_value_invalid };
   scm_make_foreign_object_2(scm_type_type, pointer, env)
 #define db_selection_to_scm(pointer) \
   scm_make_foreign_object_1(scm_type_selection, pointer)
+#define scm_to_db_record(a, result) \
+  result.id = ((db_id_t)(scm_foreign_object_ref(a, 0))); \
+  result.size = ((size_t)(scm_foreign_object_ref(a, 1))); \
+  result.data = ((void*)(scm_foreign_object_ref(a, 2)))
 #define scm_to_db_env(a) ((db_env_t*)(scm_foreign_object_ref(a, 0)))
 #define scm_to_db_txn(a) ((db_txn_t*)(scm_foreign_object_ref(a, 0)))
 #define scm_to_db_index(a) ((db_index_t*)(scm_foreign_object_ref(a, 0)))
@@ -22,6 +43,7 @@ enum { status_id_field_name_not_found, status_id_field_value_invalid };
   ((db_##selection_name##_selection_t*)(scm_foreign_object_ref(a, 0)))
 #define scm_type_to_db_env(a) ((db_env_t*)(scm_foreign_object_ref(a, 1)))
 #define scm_index_to_db_env(a) ((db_env_t*)(scm_foreign_object_ref(a, 1)))
+#define db_status_group_db_guile db_status_group_last
 #define status_to_scm_error(a) \
   scm_c_error((db_guile_status_name(a)), (db_guile_status_description(a)))
 #define scm_c_error(name, description) \
@@ -34,28 +56,43 @@ enum { status_id_field_name_not_found, status_id_field_value_invalid };
 #define status_to_scm_return(result) return ((status_to_scm(result)))
 #define status_to_scm(result) \
   (status_is_success ? result : status_to_scm_error(status))
-SCM scm_type_env;
-SCM scm_type_txn;
-SCM scm_type_selection;
-SCM scm_type_type;
-SCM scm_type_index;
 SCM scm_rnrs_raise;
 SCM scm_symbol_binary;
-SCM scm_symbol_string;
 SCM scm_symbol_float32;
 SCM scm_symbol_float64;
-SCM scm_symbol_int8;
 SCM scm_symbol_int16;
 SCM scm_symbol_int32;
 SCM scm_symbol_int64;
-SCM scm_symbol_uint8;
-SCM scm_symbol_uint16;
-SCM scm_symbol_uint32;
-SCM scm_symbol_uint64;
-SCM scm_symbol_string8;
+SCM scm_symbol_int8;
+SCM scm_symbol_min;
+SCM scm_symbol_max;
+SCM scm_symbol_label;
+SCM scm_symbol_left;
+SCM scm_symbol_ordinal;
+SCM scm_symbol_right;
+SCM scm_symbol_string;
 SCM scm_symbol_string16;
 SCM scm_symbol_string32;
 SCM scm_symbol_string64;
+SCM scm_symbol_string8;
+SCM scm_symbol_uint16;
+SCM scm_symbol_uint32;
+SCM scm_symbol_uint64;
+SCM scm_symbol_uint8;
+SCM scm_type_env;
+SCM scm_type_index;
+SCM scm_type_record;
+SCM scm_type_selection;
+SCM scm_type_txn;
+SCM scm_type_type;
+SCM db_record_to_scm(db_record_t a) {
+  SCM b;
+  b = scm_make_foreign_object_0(scm_type_record);
+  scm_foreign_object_unsigned_set_x(b, 0, (a.id));
+  scm_foreign_object_unsigned_set_x(b, 1, (a.size));
+  scm_foreign_object_set_x(b, 2, (a.data));
+  return (b);
+};
 /** get the db-field for either a field offset integer or field name */
 status_t
 scm_to_field_offset(SCM scm_a, db_type_t* type, db_fields_len_t* result) {
@@ -228,6 +265,7 @@ SCM scm_from_mdb_stat(MDB_stat a) {
     b);
   return (b);
 };
+/** db-index-t* -> SCM:((field-offset . field-name) ...) */
 SCM db_index_to_scm_fields(db_index_t* a) {
   db_field_t field;
   db_type_t* type;
@@ -244,7 +282,8 @@ SCM db_index_to_scm_fields(db_index_t* a) {
   };
   return (result);
 };
-/** result-data has to be freed by the caller only if result-is-ref is true */
+/** convert an scm value to the format that will be used to for insert.
+  result-data has to be freed by the caller only if result-is-ref is true */
 status_t scm_to_field_data(SCM scm_a,
   db_field_type_t field_type,
   void** result_data,
@@ -288,7 +327,7 @@ status_t scm_to_field_data(SCM scm_a,
     *result_data = scm_to_utf8_stringn(scm_a, 0);
     *result_size = size;
   } else if (scm_is_integer(scm_a)) {
-    db_malloc(data, 8);
+    status_require((db_helper_malloc(8, (&data))));
     scm_dynwind_unwind_handler(free, data, 0);
     if (db_field_type_uint64 == field_type) {
       *((uint64_t*)(data)) = scm_to_uint64(scm_a);
@@ -321,7 +360,7 @@ status_t scm_to_field_data(SCM scm_a,
     *result_data = data;
     *result_size = size;
   } else if (scm_is_rational(scm_a)) {
-    db_malloc(data, 8);
+    status_require((db_helper_malloc(8, (&data))));
     scm_dynwind_unwind_handler(free, data, 0);
     if (db_field_type_float64 == field_type) {
       *((double*)(data)) = scm_to_double(scm_a);
@@ -339,5 +378,62 @@ status_t scm_to_field_data(SCM scm_a,
 exit:
   scm_dynwind_end();
   return (status);
+};
+/** this routine allocates result and passes ownership to the caller */
+status_t scm_to_db_ids(SCM scm_a, db_ids_t* result) {
+  status_declare;
+  db_ids_declare(b);
+  size_t length;
+  length = scm_to_size_t((scm_length(scm_a)));
+  scm_dynwind_begin(0);
+  status_require((db_ids_new(length, (&b))));
+  scm_dynwind_unwind_handler(free, (b.start), 0);
+  while (!scm_is_null(scm_a)) {
+    db_ids_add(b, (scm_to_uint((scm_first(scm_a)))));
+    scm_a = scm_tail(scm_a);
+  };
+  *result = b;
+exit:
+  scm_dynwind_end();
+  return (status);
+};
+SCM db_ids_to_scm(db_ids_t a) {
+  SCM b;
+  b = SCM_EOL;
+  while (db_ids_in_range(a)) {
+    b = scm_cons((scm_from_uint((db_ids_get(a)))), b);
+    db_ids_forward(a);
+  };
+  return (b);
+};
+SCM db_records_to_scm(db_records_t a) {
+  db_record_t b;
+  SCM c;
+  c = SCM_EOL;
+  while (i_array_in_range(a)) {
+    b = i_array_get(a);
+    c = scm_cons((db_record_to_scm(b)), c);
+    i_array_forward(a);
+  };
+  return (c);
+};
+define_db_relations_to_scm_retrieve(left);
+define_db_relations_to_scm_retrieve(right);
+define_db_relations_to_scm_retrieve(label);
+define_db_relations_to_scm_retrieve(ordinal);
+SCM db_relations_to_scm(db_relations_t a) {
+  SCM b;
+  db_relation_t record;
+  b = SCM_EOL;
+  while (db_relations_in_range(a)) {
+    record = db_relations_get(a);
+    b = scm_cons((scm_vector((scm_list_4((scm_from_uint((record.left))),
+                   (scm_from_uint((record.right))),
+                   (scm_from_uint((record.label))),
+                   (scm_from_uint((record.ordinal))))))),
+      b);
+    db_relations_forward(a);
+  };
+  return (b);
 };
 #include "./selections.c"

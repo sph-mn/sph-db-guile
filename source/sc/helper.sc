@@ -2,24 +2,42 @@
   "bindings that arent part of the exported scheme api and debug features."
   "separate file because it is easier to start from the exported features")
 
-(enum (status-id-field-name-not-found status-id-field-value-invalid))
+(enum (status-id-field-name-not-found status-id-field-value-invalid status-id-invalid-argument))
 
 (pre-define
-  db-status-group-db-guile db-status-group-last
   (scm-options-get options name result)
   (begin
-    "SCM uint8_t* SCM -> unspecified"
+    "SCM uint8_t* SCM -> unspecified
+    get value for field with name from options alist and set result
+    to it or undefined if it doesnt exist"
     (set
       result (scm-assoc-ref scm-options (scm-from-latin1-symbol name))
       result
       (if* (scm-is-pair result) (scm-tail result)
         SCM-UNDEFINED)))
+  (define-db-relations->scm-retrieve field-name)
+  (define ((pre-concat db-relations->scm-retrieve_ field-name) a) (SCM db-relations-t)
+    (declare
+      b SCM
+      record db-relation-t)
+    (set b SCM-EOL)
+    (while (db-relations-in-range a)
+      (set
+        record (db-relations-get a)
+        b (scm-cons (scm-from-uint record.field-name) b))
+      (db-relations-forward a))
+    (return b))
   ; scm types
   (db-env->scm pointer) (scm-make-foreign-object-1 scm-type-env pointer)
   (db-txn->scm pointer) (scm-make-foreign-object-1 scm-type-txn pointer)
   (db-index->scm pointer env) (scm-make-foreign-object-2 scm-type-index pointer env)
   (db-type->scm pointer env) (scm-make-foreign-object-2 scm-type-type pointer env)
   (db-selection->scm pointer) (scm-make-foreign-object-1 scm-type-selection pointer)
+  (scm->db-record a result)
+  (set
+    result.id (convert-type (scm-foreign-object-ref a 0) db-id-t)
+    result.size (convert-type (scm-foreign-object-ref a 1) size-t)
+    result.data (convert-type (scm-foreign-object-ref a 2) void*))
   (scm->db-env a) (convert-type (scm-foreign-object-ref a 0) db-env-t*)
   (scm->db-txn a) (convert-type (scm-foreign-object-ref a 0) db-txn-t*)
   (scm->db-index a) (convert-type (scm-foreign-object-ref a 0) db-index-t*)
@@ -29,6 +47,7 @@
   (scm-type->db-env a) (convert-type (scm-foreign-object-ref a 1) db-env-t*)
   (scm-index->db-env a) (convert-type (scm-foreign-object-ref a 1) db-env-t*)
   ; error handling
+  db-status-group-db-guile db-status-group-last
   (status->scm-error a) (scm-c-error (db-guile-status-name a) (db-guile-status-description a))
   (scm-c-error name description)
   (scm-call-1
@@ -43,28 +62,43 @@
     (status->scm-error status)))
 
 (declare
-  scm-type-env SCM
-  scm-type-txn SCM
-  scm-type-selection SCM
-  scm-type-type SCM
-  scm-type-index SCM
   scm-rnrs-raise SCM
   scm-symbol-binary SCM
-  scm-symbol-string SCM
   scm-symbol-float32 SCM
   scm-symbol-float64 SCM
-  scm-symbol-int8 SCM
   scm-symbol-int16 SCM
   scm-symbol-int32 SCM
   scm-symbol-int64 SCM
-  scm-symbol-uint8 SCM
+  scm-symbol-int8 SCM
+  scm-symbol-min SCM
+  scm-symbol-max SCM
+  scm-symbol-label SCM
+  scm-symbol-left SCM
+  scm-symbol-ordinal SCM
+  scm-symbol-right SCM
+  scm-symbol-string SCM
+  scm-symbol-string16 SCM
+  scm-symbol-string32 SCM
+  scm-symbol-string64 SCM
+  scm-symbol-string8 SCM
   scm-symbol-uint16 SCM
   scm-symbol-uint32 SCM
   scm-symbol-uint64 SCM
-  scm-symbol-string8 SCM
-  scm-symbol-string16 SCM
-  scm-symbol-string32 SCM
-  scm-symbol-string64 SCM)
+  scm-symbol-uint8 SCM
+  scm-type-env SCM
+  scm-type-index SCM
+  scm-type-record SCM
+  scm-type-selection SCM
+  scm-type-txn SCM
+  scm-type-type SCM)
+
+(define (db-record->scm a) (SCM db-record-t)
+  (declare b SCM)
+  (set b (scm-make-foreign-object-0 scm-type-record))
+  (scm-foreign-object-unsigned-set! b 0 a.id)
+  (scm-foreign-object-unsigned-set! b 1 a.size)
+  (scm-foreign-object-set! b 2 a.data)
+  (return b))
 
 (define (scm->field-offset scm-a type result) (status-t SCM db-type-t* db-fields-len-t*)
   "get the db-field for either a field offset integer or field name"
@@ -189,6 +223,7 @@
   (return b))
 
 (define (db-index->scm-fields a) (SCM db-index-t*)
+  "db-index-t* -> SCM:((field-offset . field-name) ...)"
   (declare
     field db-field-t
     type db-type-t*
@@ -209,7 +244,8 @@
 
 (define (scm->field-data scm-a field-type result-data result-size result-is-ref)
   (status-t SCM db-field-type-t void** size-t* boolean*)
-  "result-data has to be freed by the caller only if result-is-ref is true"
+  "convert an scm value to the format that will be used to for insert.
+  result-data has to be freed by the caller only if result-is-ref is true"
   status-declare
   (declare
     size size-t
@@ -237,7 +273,7 @@
         *result-data (scm->utf8-stringn scm-a 0)
         *result-size size))
     ( (scm-is-integer scm-a)
-      (db-malloc data 8)
+      (status-require (db-helper-malloc 8 &data))
       (scm-dynwind-unwind-handler free data 0)
       (case = field-type
         (db-field-type-uint64
@@ -278,7 +314,7 @@
         *result-data data
         *result-size size))
     ( (scm-is-rational scm-a)
-      (db-malloc data 8)
+      (status-require (db-helper-malloc 8 &data))
       (scm-dynwind-unwind-handler free data 0)
       (case = field-type
         (db-field-type-float64
@@ -297,31 +333,49 @@
     (scm-dynwind-end)
     (return status)))
 
-#;(define (db-ids->scm a) (SCM db-ids-t)
-  (define b SCM SCM-EOL)
-  (while (db-ids-in-range a)
-    (set b (scm-cons (scm-from-uint (db-ids-first a)) b))
-    (db-ids-forward a))
-  (return result))
-
-#;(define (scm->db-ids scm-a result) (status-t SCM db-ids-t*)
-  "result is allocated by this routine and caller frees"
+(define (scm->db-ids scm-a result) (status-t SCM db-ids-t*)
+  "this routine allocates result and passes ownership to the caller"
   status-declare
-  (declare b db-ids-t)
-  (set b *result)
+  (db-ids-declare b)
+  (declare length size-t)
+  (set length (scm->size-t (scm-length scm-a)))
+  (scm-dynwind-begin 0)
+  (status-require (db-ids-new length &b))
+  (scm-dynwind-unwind-handler free b.start 0)
   (while (not (scm-is-null scm-a))
-    (db-ids-add b (scm-from-uint (scm-first scm-a)))
-    (if b
-      (set
-        *result b
-        scm-a (scm-tail scm-a))
-      (begin
-        (db-ids-destroy *result)
-        (db-status-set-id-goto db-status-id-memory))))
+    (db-ids-add b (scm->uint (scm-first scm-a)))
+    (set scm-a (scm-tail scm-a)))
+  (set *result b)
   (label exit
+    (scm-dynwind-end)
     (return status)))
 
-#;(define (db-relations->scm a convert-data)
+(define (db-ids->scm a) (SCM db-ids-t)
+  (declare b SCM)
+  (set b SCM-EOL)
+  (while (db-ids-in-range a)
+    (set b (scm-cons (scm-from-uint (db-ids-get a)) b))
+    (db-ids-forward a))
+  (return b))
+
+(define (db-records->scm a) (SCM db-records-t)
+  (declare
+    b db-record-t
+    c SCM)
+  (set c SCM-EOL)
+  (while (i-array-in-range a)
+    (set
+      b (i-array-get a)
+      c (scm-cons (db-record->scm b) c))
+    (i-array-forward a))
+  (return c))
+
+(define-db-relations->scm-retrieve left)
+(define-db-relations->scm-retrieve right)
+(define-db-relations->scm-retrieve label)
+(define-db-relations->scm-retrieve ordinal)
+
+#;(define (db-records->scm a convert-data)
   (SCM db-data-records-t* (function-pointer SCM db-data-record-t))
   (define result SCM SCM-EOL)
   (define record db-data-record-t)
@@ -336,21 +390,22 @@
       a (db-data-records-rest a)))
   (return result))
 
-#;(define (db-relations->scm a) (SCM db-relations-t*)
-  (define result SCM SCM-EOL)
-  (define record db-relation-record-t)
-  (while a
+(define (db-relations->scm a) (SCM db-relations-t)
+  (declare
+    b SCM
+    record db-relation-t)
+  (set b SCM-EOL)
+  (while (db-relations-in-range a)
     (set
-      record (db-relations-first a)
-      result
+      record (db-relations-get a)
+      b
       (scm-cons
         (scm-vector
           (scm-list-4
-            (db-id->scm (struct-get record left))
-            (db-id->scm (struct-get record right))
-            (db-id->scm (struct-get record label)) (db-id->scm (struct-get record ordinal))))
-        result)
-      a (db-relations-rest a)))
-  (return result))
+            (scm-from-uint record.left)
+            (scm-from-uint record.right) (scm-from-uint record.label) (scm-from-uint record.ordinal)))
+        b))
+    (db-relations-forward a))
+  (return b))
 
 (pre-include "./selections.c")

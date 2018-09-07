@@ -51,8 +51,14 @@
                 (id (db-record-create txn type values)))
               (and (= 1 id) (integer? id))))))))
 
-  (define-procedure-tests tests (db-record-create)
-    (db-type) (db-index) (db-env) (db-txn) (db-statistics))
+  (define-test (db-relation-ensure env)
+    (db-txn-call-write env
+      (l (txn)
+        (let ((left (list 1 2 3)) (right (list 4 5)) (label (list 7)))
+          (db-relation-ensure txn left right label)))))
+
+  (define-procedure-tests tests (db-relation-ensure)
+    (db-record-create) (db-type) (db-index) (db-env) (db-txn) (db-statistics))
 
   (l (settings)
     (let* ((test-runs 1) (settings (test-helper-db-default-test-settings settings)))

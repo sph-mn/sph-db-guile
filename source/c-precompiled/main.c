@@ -174,7 +174,7 @@ SCM scm_db_txn_begin(SCM scm_env) {
   status_declare;
   db_txn_t* txn;
   txn = 0;
-  db_calloc(txn, 1, (sizeof(db_txn_t)));
+  status_require((db_helper_calloc((sizeof(db_txn_t)), (&txn))));
   txn->env = scm_to_db_env(scm_env);
   status_require((db_txn_begin(txn)));
 exit:
@@ -190,7 +190,7 @@ SCM scm_db_txn_write_begin(SCM scm_env) {
   status_declare;
   db_txn_t* txn;
   txn = 0;
-  db_calloc(txn, 1, (sizeof(db_txn_t)));
+  status_require((db_helper_calloc((sizeof(db_txn_t)), (&txn))));
   txn->env = scm_to_db_env(scm_env);
   status_require((db_txn_write_begin(txn)));
 exit:
@@ -230,7 +230,8 @@ SCM scm_db_type_create(SCM scm_env,
   scm_dynwind_free(name);
   flags = (scm_is_undefined(scm_flags) ? 0 : scm_to_uint8(scm_flags));
   fields_len = scm_to_uint((scm_length(scm_fields)));
-  db_calloc(fields, fields_len, (sizeof(db_field_t)));
+  status_require(
+    (db_helper_calloc((fields_len * sizeof(db_field_t)), (&fields))));
   scm_dynwind_free(fields);
   for (i = 0; (i < fields_len);
        i = (1 + i), scm_fields = scm_tail(scm_fields)) {
@@ -355,28 +356,210 @@ exit:
   scm_dynwind_end();
   status_to_scm_return((scm_from_uint(result_id)));
 };
+db_ordinal_t db_guile_ordinal_generator(void* state) {
+  SCM scm_state;
+  SCM scm_generator;
+  SCM scm_result;
+  scm_state = *((SCM*)(state));
+  scm_generator = scm_first(scm_state);
+  scm_result = scm_apply_0(scm_generator, (scm_tail(scm_state)));
+  *((SCM*)(state)) = scm_cons(scm_generator, scm_result);
+  return ((scm_to_uint((scm_first(scm_result)))));
+};
+SCM scm_db_relation_ensure(SCM scm_txn,
+  SCM scm_left,
+  SCM scm_right,
+  SCM scm_label,
+  SCM scm_ordinal_generator,
+  SCM scm_ordinal_state) {
+  status_declare;
+  db_ids_t left;
+  db_ids_t right;
+  db_ids_t label;
+  SCM scm_state;
+  db_relation_ordinal_generator_t ordinal_generator;
+  void* ordinal_state;
+  db_ordinal_t ordinal_value;
+  status_require((scm_to_db_ids(scm_left, (&left))));
+  status_require((scm_to_db_ids(scm_right, (&right))));
+  status_require((scm_to_db_ids(scm_label, (&label))));
+  if (scm_is_true((scm_procedure_p(scm_ordinal_generator)))) {
+    scm_state = scm_cons(scm_ordinal_generator,
+      (scm_is_true((scm_list_p(scm_ordinal_state)))
+          ? scm_ordinal_state
+          : scm_list_1(scm_ordinal_state)));
+    ordinal_state = &scm_state;
+    ordinal_generator = db_guile_ordinal_generator;
+  } else {
+    ordinal_generator = 0;
+    ordinal_value =
+      (scm_is_undefined(scm_ordinal_state) ? 0
+                                           : scm_to_uint(scm_ordinal_state));
+    ordinal_state = &ordinal_value;
+  };
+  db_relation_ensure((*(scm_to_db_txn(scm_txn))),
+    left,
+    right,
+    label,
+    ordinal_generator,
+    ordinal_state);
+exit:
+  status_to_scm_return(SCM_BOOL_T);
+};
+SCM scm_db_id_type(SCM a) { scm_from_uint((db_id_type((scm_to_uint(a))))); };
+SCM scm_db_id_element(SCM a) {
+  scm_from_uint((db_id_element((scm_to_uint(a)))));
+};
+SCM scm_db_id_add_type(SCM a, SCM type) {
+  scm_from_uint((db_id_add_type((scm_to_uint(a)), (scm_to_uint(type)))));
+};
+SCM scm_db_record_get(SCM scm_txn, SCM scm_ids) {
+  status_declare;
+  db_ids_t ids;
+  db_records_t records;
+  SCM result;
+  scm_dynwind_begin(0);
+  status_require((scm_to_db_ids(scm_ids, (&ids))));
+  scm_dynwind_free((ids.start));
+  status_require((db_records_new((db_ids_length(ids)), (&records))));
+  scm_dynwind_free((records.start));
+  status_require((db_record_get((*(scm_to_db_txn(scm_txn))), ids, (&records))));
+  result = db_records_to_scm(records);
+exit:
+  scm_dynwind_end();
+  status_to_scm_return(result);
+};
+SCM scm_db_relation_select(SCM scm_txn,
+  SCM scm_left,
+  SCM scm_right,
+  SCM scm_label,
+  SCM scm_retrieve,
+  SCM scm_ordinal,
+  SCM scm_offset) {
+  status_declare;
+  db_ids_t left;
+  db_ids_t right;
+  SCM scm_ordinal_min;
+  SCM (*relations_to_scm)(db_relations_t);
+  SCM scm_ordinal_max;
+  db_ids_t label;
+  db_ids_t* left_pointer;
+  db_ids_t* right_pointer;
+  db_ids_t* label_pointer;
+  db_ordinal_condition_t ordinal;
+  db_ordinal_condition_t* ordinal_pointer;
+  uint32_t offset;
+  db_guile_relation_selection_t* selection;
+  if (scm_is_null(scm_left) || scm_is_null(scm_right) ||
+    scm_is_null(scm_label)) {
+    return ((db_selection_to_scm(0)));
+  };
+  /* dont start the dynwind context sooner or it might not be finished */
+  scm_dynwind_begin(0);
+  /* left/right/label */
+  if (scm_is_pair(scm_left)) {
+    status_require((scm_to_db_ids(scm_left, (&left))));
+    left_pointer = &left;
+  } else {
+    left_pointer = 0;
+  };
+  if (scm_is_pair(scm_right)) {
+    status_require((scm_to_db_ids(scm_right, (&right))));
+    right_pointer = &right;
+  } else {
+    right_pointer = 0;
+  };
+  if (scm_is_pair(scm_right)) {
+    status_require((scm_to_db_ids(scm_label, (&label))));
+    label_pointer = &label;
+  } else {
+    label_pointer = 0;
+  };
+  /* ordinal */
+  if (scm_is_true((scm_list_p(scm_ordinal)))) {
+    scm_ordinal_min = scm_assoc_ref(scm_ordinal, scm_symbol_min);
+    scm_ordinal_max = scm_assoc_ref(scm_ordinal, scm_symbol_max);
+    ordinal.min =
+      (scm_is_integer(scm_ordinal_min) ? scm_to_uint(scm_ordinal_min) : 0);
+    ordinal.max =
+      (scm_is_integer(scm_ordinal_max) ? scm_to_uint(scm_ordinal_max) : 0);
+    ordinal_pointer = &ordinal;
+  } else {
+    ordinal_pointer = 0;
+  };
+  /* offset */
+  offset = (scm_is_integer(scm_offset) ? scm_to_uint32(scm_offset) : 0);
+  /* retrieve */
+  relations_to_scm = (scm_is_symbol(scm_retrieve)
+      ? (scm_is_eq(scm_symbol_right, scm_retrieve)
+            ? db_relations_to_scm_retrieve_right
+            : (scm_is_eq(scm_symbol_left, scm_retrieve)
+                  ? db_relations_to_scm_retrieve_left
+                  : (scm_is_eq(scm_symbol_label, scm_retrieve)
+                        ? db_relations_to_scm_retrieve_label
+                        : (scm_is_eq(scm_symbol_ordinal, scm_retrieve)
+                              ? db_relations_to_scm_retrieve_ordinal
+                              : 0))))
+      : db_relations_to_scm);
+  if (!relations_to_scm) {
+    status_set_both_goto(db_status_group_db_guile, status_id_invalid_argument);
+  };
+  /* db-relation-select */
+  status_require(
+    (db_helper_malloc((sizeof(db_guile_relation_selection_t)), (&selection))));
+  scm_dynwind_unwind_handler(free, selection, 0);
+  status_require((db_relation_select((*(scm_to_db_txn(scm_txn))),
+    left_pointer,
+    right_pointer,
+    label_pointer,
+    ordinal_pointer,
+    offset,
+    (&(selection->selection)))));
+  selection->left = left;
+  selection->right = right;
+  selection->label = label;
+  selection->relations_to_scm = relations_to_scm;
+exit:
+  scm_dynwind_end();
+  status_to_scm_return((db_selection_to_scm(selection)));
+};
+SCM scm_db_relation_read(SCM scm_selection, SCM scm_count);
+SCM scm_db_record_select(SCM scm_txn);
+SCM scm_db_record_read(SCM scm_txn);
+SCM scm_db_record_ref(SCM scm_type, SCM scm_record, SCM scm_field);
+SCM scm_db_index_select(SCM scm_txn);
+SCM scm_db_index_read(SCM scm_txn);
+SCM scm_db_record_index_select(SCM scm_txn);
+SCM scm_db_record_index_read(SCM scm_txn);
+SCM scm_db_record_virtual(SCM scm_data);
 /** prepare scm valuaes and register guile bindings */
 void db_guile_init() {
   SCM type_slots;
   SCM scm_symbol_data;
-  scm_symbol_data = scm_from_latin1_symbol("data");
+  scm_rnrs_raise = scm_c_public_ref("rnrs exceptions", "raise");
+  scm_symbol_min = scm_from_latin1_symbol("min");
+  scm_symbol_max = scm_from_latin1_symbol("max");
   scm_symbol_binary = scm_from_latin1_symbol("binary");
-  scm_symbol_string = scm_from_latin1_symbol("string");
+  scm_symbol_data = scm_from_latin1_symbol("data");
   scm_symbol_float32 = scm_from_latin1_symbol("float32");
   scm_symbol_float64 = scm_from_latin1_symbol("float64");
-  scm_symbol_int8 = scm_from_latin1_symbol("int8");
   scm_symbol_int16 = scm_from_latin1_symbol("int16");
   scm_symbol_int32 = scm_from_latin1_symbol("int32");
   scm_symbol_int64 = scm_from_latin1_symbol("int64");
-  scm_symbol_uint8 = scm_from_latin1_symbol("uint8");
-  scm_symbol_uint16 = scm_from_latin1_symbol("uint16");
-  scm_symbol_uint32 = scm_from_latin1_symbol("uint32");
-  scm_symbol_uint64 = scm_from_latin1_symbol("uint64");
-  scm_symbol_string8 = scm_from_latin1_symbol("string8");
+  scm_symbol_int8 = scm_from_latin1_symbol("int8");
+  scm_symbol_label = scm_from_latin1_symbol("label");
+  scm_symbol_left = scm_from_latin1_symbol("left");
+  scm_symbol_ordinal = scm_from_latin1_symbol("ordinal");
+  scm_symbol_right = scm_from_latin1_symbol("right");
+  scm_symbol_string = scm_from_latin1_symbol("string");
   scm_symbol_string16 = scm_from_latin1_symbol("string16");
   scm_symbol_string32 = scm_from_latin1_symbol("string32");
   scm_symbol_string64 = scm_from_latin1_symbol("string64");
-  scm_rnrs_raise = scm_c_public_ref("rnrs exceptions", "raise");
+  scm_symbol_string8 = scm_from_latin1_symbol("string8");
+  scm_symbol_uint16 = scm_from_latin1_symbol("uint16");
+  scm_symbol_uint32 = scm_from_latin1_symbol("uint32");
+  scm_symbol_uint64 = scm_from_latin1_symbol("uint64");
+  scm_symbol_uint8 = scm_from_latin1_symbol("uint8");
   type_slots = scm_list_1(scm_symbol_data);
   scm_type_env = scm_make_foreign_object_type(
     (scm_from_latin1_symbol("db-env")), type_slots, 0);
@@ -387,6 +570,11 @@ void db_guile_init() {
     (scm_from_latin1_symbol("db-type")), type_slots, 0);
   scm_type_index = scm_make_foreign_object_type(
     (scm_from_latin1_symbol("db-index")), type_slots, 0);
+  type_slots = scm_list_3((scm_from_latin1_symbol("id")),
+    (scm_from_latin1_symbol("size")),
+    scm_symbol_data);
+  scm_type_record = scm_make_foreign_object_type(
+    (scm_from_latin1_symbol("db-record")), type_slots, 0);
   scm_type_selection = scm_make_foreign_object_type(
     (scm_from_latin1_symbol("db-selection")), type_slots, 0);
   scm_c_define_procedure_c_init;
@@ -445,10 +633,20 @@ void db_guile_init() {
   scm_c_define_procedure_c(
     "db-index-rebuild", 1, 0, 0, scm_db_index_rebuild, "");
   scm_c_define_procedure_c("db-index-fields", 1, 0, 0, scm_db_index_fields, "");
+  scm_c_define_procedure_c("db-id-type", 1, 0, 0, scm_db_id_type, "");
+  scm_c_define_procedure_c("db-id-element", 1, 0, 0, scm_db_id_element, "");
+  scm_c_define_procedure_c("db-id-add-type", 2, 0, 0, scm_db_id_add_type, "");
   scm_c_define_procedure_c("db-record-create",
     3,
     0,
     0,
     scm_db_record_create,
     ("db-txn db-type list:((field-id . value) ...) -> integer"));
+  scm_c_define_procedure_c("db-relation-ensure",
+    4,
+    2,
+    0,
+    scm_db_relation_ensure,
+    ("db-txn list:left list:right list:label [ordinal-generator "
+     "ordinal-state]"));
 };

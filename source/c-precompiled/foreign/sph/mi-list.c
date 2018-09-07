@@ -28,6 +28,7 @@ typedef struct mi_list_struct_name {
 #define mi_list_first_address(a) &(a->data)
 #define mi_list_rest(a) a->link
 #endif
+/** removes and deallocates the first element */
 mi_list_t* mi_list_name(drop)(mi_list_t* a) {
   mi_list_t* a_next = mi_list_rest(a);
   free(a);

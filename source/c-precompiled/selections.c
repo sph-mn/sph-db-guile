@@ -21,7 +21,9 @@ typedef struct {
 } db_guile_relation_selection_t;
 #include "./foreign/sph/mi-list.c"
 __thread db_guile_selections_t* db_guile_active_selections = 0;
-/** finalise all selections of the current thread for garbage collection.
+/** finish all selections and associated temporary data of the current thread.
+  to not have to call selection-finish.
+  called by txn-commit or txn-abort.
   there can only be one transaction per thread per sph-db requirements */
 void db_guile_selections_free() {
   db_guile_selection_t a;

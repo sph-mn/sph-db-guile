@@ -272,11 +272,6 @@
       a (db-relations-rest a)))
   (return result))
 
-(define-db-relations->scm-retrieve left)
-(define-db-relations->scm-retrieve right)
-(define-db-relations->scm-retrieve label)
-(define-db-relations->scm-retrieve ordinal)
-
 (define (scm->db-data-list a result) (status-t SCM db-data-list-t**)
   status-declare
   (define result-temp db-data-list-t* (deref result))

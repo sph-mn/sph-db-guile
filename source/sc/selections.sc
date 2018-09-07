@@ -28,7 +28,9 @@
 (define db-guile-active-selections (__thread db-guile-selections-t*) 0)
 
 (define (db-guile-selections-free) void
-  "finalise all selections of the current thread for garbage collection.
+  "finish all selections and associated temporary data of the current thread.
+  to not have to call selection-finish.
+  called by txn-commit or txn-abort.
   there can only be one transaction per thread per sph-db requirements"
   (declare
     a db-guile-selection-t

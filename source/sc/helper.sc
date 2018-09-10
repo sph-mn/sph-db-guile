@@ -39,8 +39,7 @@
   (scm->db-txn a) (convert-type (scm-foreign-object-ref a 0) db-txn-t*)
   (scm->db-index a) (convert-type (scm-foreign-object-ref a 0) db-index-t*)
   (scm->db-type a) (convert-type (scm-foreign-object-ref a 0) db-type-t*)
-  (scm->db-selection a selection-name)
-  (convert-type (scm-foreign-object-ref a 0) (pre-concat db_ selection-name _selection-t*))
+  (scm->db-selection a) (convert-type (scm-foreign-object-ref a 0) db-guile-selection-t*)
   ; error handling
   db-status-group-db-guile db-status-group-last
   (scm-from-status-error a) (scm-c-error (db-guile-status-name a) (db-guile-status-description a))
@@ -84,6 +83,18 @@
   scm-symbol-uint32 SCM
   scm-symbol-uint64 SCM
   scm-symbol-uint8 SCM
+  scm-symbol-uint128 SCM
+  scm-symbol-uint256 SCM
+  scm-symbol-uint512 SCM
+  scm-symbol-int128 SCM
+  scm-symbol-int256 SCM
+  scm-symbol-int512 SCM
+  scm-symbol-string128 SCM
+  scm-symbol-string256 SCM
+  scm-symbol-string512 SCM
+  scm-symbol-binary128 SCM
+  scm-symbol-binary256 SCM
+  scm-symbol-binary512 SCM
   scm-type-env SCM
   scm-type-index SCM
   scm-type-record SCM
@@ -186,7 +197,18 @@
     (scm-symbol-string16 (return db-field-type-string16))
     (scm-symbol-string32 (return db-field-type-string32))
     (scm-symbol-string64 (return db-field-type-string64))
-    (scm-symbol-float64 (return db-field-type-float64))
+    (scm-symbol-string128 (return db-field-type-string128))
+    (scm-symbol-string256 (return db-field-type-string256))
+    (scm-symbol-string512 (return db-field-type-string512))
+    (scm-symbol-int128 (return db-field-type-int128))
+    (scm-symbol-int256 (return db-field-type-int256))
+    (scm-symbol-int512 (return db-field-type-int512))
+    (scm-symbol-uint128 (return db-field-type-uint128))
+    (scm-symbol-uint256 (return db-field-type-uint256))
+    (scm-symbol-uint512 (return db-field-type-uint512))
+    (scm-symbol-binary128 (return db-field-type-binary128))
+    (scm-symbol-binary256 (return db-field-type-binary256))
+    (scm-symbol-binary512 (return db-field-type-binary512))
     (else (return 0))))
 
 (define (scm-from-db-field-type a) (SCM db-field-type-t)
@@ -210,6 +232,18 @@
     (db-field-type-string32 (return scm-symbol-string32))
     (db-field-type-string64 (return scm-symbol-string64))
     (db-field-type-float64 (return scm-symbol-float64))
+    (db-field-type-string128 (return scm-symbol-string128))
+    (db-field-type-string256 (return scm-symbol-string256))
+    (db-field-type-string512 (return scm-symbol-string512))
+    (db-field-type-int128 (return scm-symbol-int128))
+    (db-field-type-int256 (return scm-symbol-int256))
+    (db-field-type-int512 (return scm-symbol-int512))
+    (db-field-type-uint128 (return scm-symbol-uint128))
+    (db-field-type-uint256 (return scm-symbol-uint256))
+    (db-field-type-uint512 (return scm-symbol-uint512))
+    (db-field-type-binary128 (return scm-symbol-binary128))
+    (db-field-type-binary256 (return scm-symbol-binary256))
+    (db-field-type-binary512 (return scm-symbol-binary512))
     (else (return SCM-BOOL-F))))
 
 (define (scm-from-mdb-stat a) (SCM MDB-stat)

@@ -562,8 +562,46 @@ SCM scm_db_record_ref(SCM scm_type, SCM scm_record, SCM scm_field) {
     field_offset);
   return ((scm_from_field_data(value, ((field_offset + type->fields)->type))));
 };
-SCM scm_db_relation_read(SCM scm_selection, SCM scm_count);
-SCM scm_db_record_read(SCM scm_txn);
+SCM scm_db_record_read(SCM scm_selection, SCM scm_count) {
+  status_declare;
+  db_records_t records;
+  db_count_t count;
+  db_guile_selection_t* selection;
+  SCM result;
+  result = SCM_UNSPECIFIED;
+  count = scm_to_uint(scm_count);
+  selection = scm_to_db_selection(scm_selection);
+  scm_dynwind_begin(0);
+  status_require((db_records_new(count, (&records))));
+  scm_dynwind_free((records.start));
+  status_require((db_record_read(
+    (*((db_record_selection_t*)(selection->selection))), count, (&records))));
+  result = scm_from_db_records(records);
+exit:
+  scm_dynwind_end();
+  scm_from_status_return(result);
+};
+SCM scm_db_relation_read(SCM scm_selection, SCM scm_count) {
+  status_declare;
+  db_relations_t relations;
+  db_count_t count;
+  db_guile_selection_t* selection;
+  db_guile_relation_selection_t* relation_selection;
+  SCM result;
+  result = SCM_UNSPECIFIED;
+  count = scm_to_uint(scm_count);
+  selection = scm_to_db_selection(scm_selection);
+  relation_selection = ((db_guile_relation_selection_t*)(selection->selection));
+  scm_dynwind_begin(0);
+  status_require((db_relations_new(count, (&relations))));
+  scm_dynwind_free((relations.start));
+  status_require((
+    db_relation_read((&(relation_selection->selection)), count, (&relations))));
+  result = (relation_selection->scm_from_relations)(relations);
+exit:
+  scm_dynwind_end();
+  scm_from_status_return(result);
+};
 SCM scm_db_index_select(SCM scm_txn);
 SCM scm_db_index_read(SCM scm_txn);
 SCM scm_db_record_index_select(SCM scm_txn);
@@ -574,31 +612,43 @@ void db_guile_init() {
   SCM type_slots;
   SCM scm_symbol_data;
   scm_rnrs_raise = scm_c_public_ref("rnrs exceptions", "raise");
-  scm_symbol_min = scm_from_latin1_symbol("min");
-  scm_symbol_max = scm_from_latin1_symbol("max");
   scm_symbol_binary = scm_from_latin1_symbol("binary");
-  scm_symbol_binary8 = scm_from_latin1_symbol("binary8");
+  scm_symbol_binary128 = scm_from_latin1_symbol("binary128");
   scm_symbol_binary16 = scm_from_latin1_symbol("binary16");
+  scm_symbol_binary256 = scm_from_latin1_symbol("binary256");
   scm_symbol_binary32 = scm_from_latin1_symbol("binary32");
+  scm_symbol_binary512 = scm_from_latin1_symbol("binary512");
   scm_symbol_binary64 = scm_from_latin1_symbol("binary64");
+  scm_symbol_binary8 = scm_from_latin1_symbol("binary8");
   scm_symbol_data = scm_from_latin1_symbol("data");
   scm_symbol_float32 = scm_from_latin1_symbol("float32");
   scm_symbol_float64 = scm_from_latin1_symbol("float64");
+  scm_symbol_int128 = scm_from_latin1_symbol("int128");
   scm_symbol_int16 = scm_from_latin1_symbol("int16");
+  scm_symbol_int256 = scm_from_latin1_symbol("int256");
   scm_symbol_int32 = scm_from_latin1_symbol("int32");
+  scm_symbol_int512 = scm_from_latin1_symbol("int512");
   scm_symbol_int64 = scm_from_latin1_symbol("int64");
   scm_symbol_int8 = scm_from_latin1_symbol("int8");
   scm_symbol_label = scm_from_latin1_symbol("label");
   scm_symbol_left = scm_from_latin1_symbol("left");
+  scm_symbol_max = scm_from_latin1_symbol("max");
+  scm_symbol_min = scm_from_latin1_symbol("min");
   scm_symbol_ordinal = scm_from_latin1_symbol("ordinal");
   scm_symbol_right = scm_from_latin1_symbol("right");
   scm_symbol_string = scm_from_latin1_symbol("string");
+  scm_symbol_string128 = scm_from_latin1_symbol("string128");
   scm_symbol_string16 = scm_from_latin1_symbol("string16");
+  scm_symbol_string256 = scm_from_latin1_symbol("string256");
   scm_symbol_string32 = scm_from_latin1_symbol("string32");
+  scm_symbol_string512 = scm_from_latin1_symbol("string512");
   scm_symbol_string64 = scm_from_latin1_symbol("string64");
   scm_symbol_string8 = scm_from_latin1_symbol("string8");
+  scm_symbol_uint128 = scm_from_latin1_symbol("uint128");
   scm_symbol_uint16 = scm_from_latin1_symbol("uint16");
+  scm_symbol_uint256 = scm_from_latin1_symbol("uint256");
   scm_symbol_uint32 = scm_from_latin1_symbol("uint32");
+  scm_symbol_uint512 = scm_from_latin1_symbol("uint512");
   scm_symbol_uint64 = scm_from_latin1_symbol("uint64");
   scm_symbol_uint8 = scm_from_latin1_symbol("uint8");
   type_slots = scm_list_1(scm_symbol_data);
@@ -701,4 +751,26 @@ void db_guile_init() {
     scm_db_relation_ensure,
     ("db-txn list:left list:right list:label [ordinal-generator "
      "ordinal-state]"));
+  scm_c_define_procedure_c("db-relation-select",
+    1,
+    4,
+    0,
+    scm_db_relation_select,
+    ("db-txn [list:left list:right list:label ordinal-generator]"));
+  scm_c_define_procedure_c("db-relation-read",
+    2,
+    0,
+    0,
+    scm_db_relation_read,
+    "selection integer:count");
+  scm_c_define_procedure_c("db-record-select",
+    2,
+    2,
+    0,
+    scm_db_record_select,
+    ("txn type [matcher matcher-state]"));
+  scm_c_define_procedure_c(
+    "db-record-read", 2, 0, 0, scm_db_record_read, "selection integer:count");
+  scm_c_define_procedure_c(
+    "db-record-ref", 3, 0, 0, scm_db_record_ref, "type record field:integer");
 };

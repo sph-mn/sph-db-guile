@@ -499,15 +499,56 @@
     (db-record-ref (scm->db-type scm-type) (pointer-get (scm->db-record scm-record)) field-offset))
   (return (scm-from-field-data value (: (+ field-offset type:fields) type))))
 
-(define (scm-db-relation-read scm-selection scm-count) (SCM SCM SCM))
-; db-record-ref
-; db-record->record
-(define (scm-db-record-read scm-txn) (SCM SCM))
+(define (scm-db-record-read scm-selection scm-count) (SCM SCM SCM)
+  status-declare
+  (declare
+    records db-records-t
+    count db-count-t
+    selection db-guile-selection-t*
+    result SCM)
+  (set
+    result SCM-UNSPECIFIED
+    count (scm->uint scm-count)
+    selection (scm->db-selection scm-selection))
+  (scm-dynwind-begin 0)
+  (status-require (db-records-new count &records))
+  (scm-dynwind-free records.start)
+  (status-require
+    (db-record-read
+      (pointer-get (convert-type selection:selection db-record-selection-t*)) count &records))
+  (set result (scm-from-db-records records))
+  (label exit
+    (scm-dynwind-end)
+    (scm-from-status-return result)))
+
+(define (scm-db-relation-read scm-selection scm-count) (SCM SCM SCM)
+  status-declare
+  (declare
+    relations db-relations-t
+    count db-count-t
+    selection db-guile-selection-t*
+    relation-selection db-guile-relation-selection-t*
+    result SCM)
+  (set
+    result SCM-UNSPECIFIED
+    count (scm->uint scm-count)
+    selection (scm->db-selection scm-selection)
+    relation-selection (convert-type selection:selection db-guile-relation-selection-t*))
+  (scm-dynwind-begin 0)
+  (status-require (db-relations-new count &relations))
+  (scm-dynwind-free relations.start)
+  (status-require (db-relation-read &relation-selection:selection count &relations))
+  (set result (relation-selection:scm-from-relations relations))
+  (label exit
+    (scm-dynwind-end)
+    (scm-from-status-return result)))
+
 (define (scm-db-index-select scm-txn) (SCM SCM))
 (define (scm-db-index-read scm-txn) (SCM SCM))
 (define (scm-db-record-index-select scm-txn) (SCM SCM))
 (define (scm-db-record-index-read scm-txn) (SCM SCM))
 (define (scm-db-record-virtual scm-data) (SCM SCM))
+; db-record->record
 
 (define (db-guile-init) void
   "prepare scm valuaes and register guile bindings"
@@ -516,31 +557,43 @@
     scm-symbol-data SCM)
   (set
     scm-rnrs-raise (scm-c-public-ref "rnrs exceptions" "raise")
-    scm-symbol-min (scm-from-latin1-symbol "min")
-    scm-symbol-max (scm-from-latin1-symbol "max")
     scm-symbol-binary (scm-from-latin1-symbol "binary")
-    scm-symbol-binary8 (scm-from-latin1-symbol "binary8")
+    scm-symbol-binary128 (scm-from-latin1-symbol "binary128")
     scm-symbol-binary16 (scm-from-latin1-symbol "binary16")
+    scm-symbol-binary256 (scm-from-latin1-symbol "binary256")
     scm-symbol-binary32 (scm-from-latin1-symbol "binary32")
+    scm-symbol-binary512 (scm-from-latin1-symbol "binary512")
     scm-symbol-binary64 (scm-from-latin1-symbol "binary64")
+    scm-symbol-binary8 (scm-from-latin1-symbol "binary8")
     scm-symbol-data (scm-from-latin1-symbol "data")
     scm-symbol-float32 (scm-from-latin1-symbol "float32")
     scm-symbol-float64 (scm-from-latin1-symbol "float64")
+    scm-symbol-int128 (scm-from-latin1-symbol "int128")
     scm-symbol-int16 (scm-from-latin1-symbol "int16")
+    scm-symbol-int256 (scm-from-latin1-symbol "int256")
     scm-symbol-int32 (scm-from-latin1-symbol "int32")
+    scm-symbol-int512 (scm-from-latin1-symbol "int512")
     scm-symbol-int64 (scm-from-latin1-symbol "int64")
     scm-symbol-int8 (scm-from-latin1-symbol "int8")
     scm-symbol-label (scm-from-latin1-symbol "label")
     scm-symbol-left (scm-from-latin1-symbol "left")
+    scm-symbol-max (scm-from-latin1-symbol "max")
+    scm-symbol-min (scm-from-latin1-symbol "min")
     scm-symbol-ordinal (scm-from-latin1-symbol "ordinal")
     scm-symbol-right (scm-from-latin1-symbol "right")
     scm-symbol-string (scm-from-latin1-symbol "string")
+    scm-symbol-string128 (scm-from-latin1-symbol "string128")
     scm-symbol-string16 (scm-from-latin1-symbol "string16")
+    scm-symbol-string256 (scm-from-latin1-symbol "string256")
     scm-symbol-string32 (scm-from-latin1-symbol "string32")
+    scm-symbol-string512 (scm-from-latin1-symbol "string512")
     scm-symbol-string64 (scm-from-latin1-symbol "string64")
     scm-symbol-string8 (scm-from-latin1-symbol "string8")
+    scm-symbol-uint128 (scm-from-latin1-symbol "uint128")
     scm-symbol-uint16 (scm-from-latin1-symbol "uint16")
+    scm-symbol-uint256 (scm-from-latin1-symbol "uint256")
     scm-symbol-uint32 (scm-from-latin1-symbol "uint32")
+    scm-symbol-uint512 (scm-from-latin1-symbol "uint512")
     scm-symbol-uint64 (scm-from-latin1-symbol "uint64")
     scm-symbol-uint8 (scm-from-latin1-symbol "uint8")
     type-slots (scm-list-1 scm-symbol-data)
@@ -601,4 +654,12 @@
     4
     2
     0
-    scm-db-relation-ensure "db-txn list:left list:right list:label [ordinal-generator ordinal-state]"))
+    scm-db-relation-ensure "db-txn list:left list:right list:label [ordinal-generator ordinal-state]")
+  (scm-c-define-procedure-c
+    "db-relation-select"
+    1 4 0 scm-db-relation-select "db-txn [list:left list:right list:label ordinal-generator]")
+  (scm-c-define-procedure-c "db-relation-read" 2 0 0 scm-db-relation-read "selection integer:count")
+  (scm-c-define-procedure-c
+    "db-record-select" 2 2 0 scm-db-record-select "txn type [matcher matcher-state]")
+  (scm-c-define-procedure-c "db-record-read" 2 0 0 scm-db-record-read "selection integer:count")
+  (scm-c-define-procedure-c "db-record-ref" 3 0 0 scm-db-record-ref "type record field:integer"))

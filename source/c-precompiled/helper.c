@@ -40,8 +40,8 @@ enum {
 #define scm_to_db_txn(a) ((db_txn_t*)(scm_foreign_object_ref(a, 0)))
 #define scm_to_db_index(a) ((db_index_t*)(scm_foreign_object_ref(a, 0)))
 #define scm_to_db_type(a) ((db_type_t*)(scm_foreign_object_ref(a, 0)))
-#define scm_to_db_selection(a, selection_name) \
-  ((db_##selection_name##_selection_t*)(scm_foreign_object_ref(a, 0)))
+#define scm_to_db_selection(a) \
+  ((db_guile_selection_t*)(scm_foreign_object_ref(a, 0)))
 #define db_status_group_db_guile db_status_group_last
 #define scm_from_status_error(a) \
   scm_c_error((db_guile_status_name(a)), (db_guile_status_description(a)))
@@ -82,6 +82,18 @@ SCM scm_symbol_uint16;
 SCM scm_symbol_uint32;
 SCM scm_symbol_uint64;
 SCM scm_symbol_uint8;
+SCM scm_symbol_uint128;
+SCM scm_symbol_uint256;
+SCM scm_symbol_uint512;
+SCM scm_symbol_int128;
+SCM scm_symbol_int256;
+SCM scm_symbol_int512;
+SCM scm_symbol_string128;
+SCM scm_symbol_string256;
+SCM scm_symbol_string512;
+SCM scm_symbol_binary128;
+SCM scm_symbol_binary256;
+SCM scm_symbol_binary512;
 SCM scm_type_env;
 SCM scm_type_index;
 SCM scm_type_record;
@@ -208,8 +220,30 @@ db_field_type_t scm_to_db_field_type(SCM a) {
     return (db_field_type_string32);
   } else if (scm_is_eq(scm_symbol_string64, a)) {
     return (db_field_type_string64);
-  } else if (scm_is_eq(scm_symbol_float64, a)) {
-    return (db_field_type_float64);
+  } else if (scm_is_eq(scm_symbol_string128, a)) {
+    return (db_field_type_string128);
+  } else if (scm_is_eq(scm_symbol_string256, a)) {
+    return (db_field_type_string256);
+  } else if (scm_is_eq(scm_symbol_string512, a)) {
+    return (db_field_type_string512);
+  } else if (scm_is_eq(scm_symbol_int128, a)) {
+    return (db_field_type_int128);
+  } else if (scm_is_eq(scm_symbol_int256, a)) {
+    return (db_field_type_int256);
+  } else if (scm_is_eq(scm_symbol_int512, a)) {
+    return (db_field_type_int512);
+  } else if (scm_is_eq(scm_symbol_uint128, a)) {
+    return (db_field_type_uint128);
+  } else if (scm_is_eq(scm_symbol_uint256, a)) {
+    return (db_field_type_uint256);
+  } else if (scm_is_eq(scm_symbol_uint512, a)) {
+    return (db_field_type_uint512);
+  } else if (scm_is_eq(scm_symbol_binary128, a)) {
+    return (db_field_type_binary128);
+  } else if (scm_is_eq(scm_symbol_binary256, a)) {
+    return (db_field_type_binary256);
+  } else if (scm_is_eq(scm_symbol_binary512, a)) {
+    return (db_field_type_binary512);
   } else {
     return (0);
   };
@@ -253,6 +287,30 @@ SCM scm_from_db_field_type(db_field_type_t a) {
     return (scm_symbol_string64);
   } else if (db_field_type_float64 == a) {
     return (scm_symbol_float64);
+  } else if (db_field_type_string128 == a) {
+    return (scm_symbol_string128);
+  } else if (db_field_type_string256 == a) {
+    return (scm_symbol_string256);
+  } else if (db_field_type_string512 == a) {
+    return (scm_symbol_string512);
+  } else if (db_field_type_int128 == a) {
+    return (scm_symbol_int128);
+  } else if (db_field_type_int256 == a) {
+    return (scm_symbol_int256);
+  } else if (db_field_type_int512 == a) {
+    return (scm_symbol_int512);
+  } else if (db_field_type_uint128 == a) {
+    return (scm_symbol_uint128);
+  } else if (db_field_type_uint256 == a) {
+    return (scm_symbol_uint256);
+  } else if (db_field_type_uint512 == a) {
+    return (scm_symbol_uint512);
+  } else if (db_field_type_binary128 == a) {
+    return (scm_symbol_binary128);
+  } else if (db_field_type_binary256 == a) {
+    return (scm_symbol_binary256);
+  } else if (db_field_type_binary512 == a) {
+    return (scm_symbol_binary512);
   } else {
     return (SCM_BOOL_F);
   };

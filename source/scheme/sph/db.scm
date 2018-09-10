@@ -15,13 +15,18 @@
     db-index-rebuild
     db-open
     db-record-create
+    db-record-read
+    db-record-ref
+    db-record-select
     db-relation-ensure
     db-relation-field-names
     db-relation-label
     db-relation-layout
     db-relation-left
     db-relation-ordinal
+    db-relation-read
     db-relation-right
+    db-relation-select
     db-selection?
     db-statistics
     db-status-description

@@ -16,7 +16,7 @@ typedef struct {
   db_ids_t left;
   db_ids_t right;
   db_ids_t label;
-  SCM (*relations_to_scm)(db_relations_t);
+  SCM (*scm_from_relations)(db_relations_t);
   db_relation_selection_t selection;
 } db_guile_relation_selection_t;
 #include "./foreign/sph/mi-list.c"
@@ -61,6 +61,6 @@ void db_guile_selection_register(void* db_selection,
     db_guile_active_selections = a;
   } else {
     status_set_both(db_status_group_db, db_status_id_memory);
-    status_to_scm_error(status);
+    scm_from_status_error(status);
   };
 };

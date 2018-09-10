@@ -30,16 +30,16 @@
         (assert-and (equal? 1 (db-type-id type)) (equal? name (db-type-name type))
           (equal? 0 (db-type-flags type)) (equal? fields (db-type-fields type))
           (null? (db-type-indices type)) (not (not (db-type-get env "test-type")))
-          (begin (db-type-delete type) (not (db-type-get env "test-type")))))))
+          (begin (db-type-delete env type) (not (db-type-get env "test-type")))))))
 
   (define-test (db-index env)
     (test-helper-type-create-1 env
       (l (type-name type-fields type)
-        (let* ((index-fields (list 1 "field-3")) (index (db-index-create type index-fields)))
+        (let* ((index-fields (list 1 "field-3")) (index (db-index-create env type index-fields)))
           (assert-and (not (not index))
-            (equal? (db-index-fields index) (db-index-fields (db-index-get type index-fields)))
-            (begin (db-index-rebuild index) #t) (begin (db-index-delete index) #t)
-            (not (db-index-get type index-fields)))))))
+            (equal? (db-index-fields index) (db-index-fields (db-index-get env type index-fields)))
+            (begin (db-index-rebuild env index) #t) (begin (db-index-delete env index) #t)
+            (not (db-index-get env type index-fields)))))))
 
   (define-test (db-record-create env)
     (test-helper-type-create-1 env

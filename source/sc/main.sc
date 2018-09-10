@@ -39,7 +39,8 @@
       field (array-get fields i)
       result
       (scm-cons
-        (scm-cons (scm-from-utf8-stringn field.name field.name-len) (db-field-type->scm field.type))
+        (scm-cons
+          (scm-from-utf8-stringn field.name field.name-len) (scm-from-db-field-type field.type))
         result)))
   (return result))
 
@@ -56,8 +57,16 @@
     indices-len type:indices-len
     indices type:indices)
   (for ((set i 0) (< i indices-len) (set i (+ 1 i)))
-    (set result (scm-cons (db-index->scm-fields (+ i indices)) result)))
+    (set result (scm-cons (scm-from-db-index-fields (+ i indices)) result)))
   (return result))
+
+(define (scm-db-status-description id-status id-group) (SCM SCM SCM)
+  status-declare
+  (status-set-both (scm->int id-group) (scm->int id-status))
+  (scm-from-latin1-string (db-status-description status)))
+
+(define (scm-db-status-group-id->name a) (SCM SCM)
+  (scm-from-latin1-symbol (db-status-group-id->name (scm->int a))))
 
 (define (scm-db-open scm-root scm-options) (SCM SCM SCM)
   status-declare
@@ -88,11 +97,11 @@
   (set status (db-open root options-pointer env))
   (label exit
     (free root)
-    (if status-is-success (return (db-env->scm env))
+    (if status-is-success (return (scm-from-db-env env))
       (begin
         (db-close env)
         (free env)
-        (status->scm-error status)))))
+        (scm-from-status-error status)))))
 
 (define (scm-db-close scm-env) (SCM SCM)
   (db-env-declare env)
@@ -116,7 +125,7 @@
     b (scm-acons (scm-from-latin1-symbol "relation-rl") (scm-from-mdb-stat a.relation-rl) b)
     b (scm-acons (scm-from-latin1-symbol "relation-ll") (scm-from-mdb-stat a.relation-ll) b))
   (label exit
-    (status->scm-return b)))
+    (scm-from-status-return b)))
 
 (define (scm-db-txn-abort scm-txn) (SCM SCM)
   (db-guile-selections-free)
@@ -138,7 +147,7 @@
   (free txn)
   (scm-foreign-object-set-x scm-txn 0 0)
   (label exit
-    (status->scm-return SCM-UNSPECIFIED)))
+    (scm-from-status-return SCM-UNSPECIFIED)))
 
 (define (scm-db-txn-begin scm-env) (SCM SCM)
   status-declare
@@ -148,10 +157,10 @@
   (set txn:env (scm->db-env scm-env))
   (status-require (db-txn-begin txn))
   (label exit
-    (if status-is-success (return (db-txn->scm txn))
+    (if status-is-success (return (scm-from-db-txn txn))
       (begin
         (free txn)
-        (status->scm-error status)
+        (scm-from-status-error status)
         (return SCM-UNSPECIFIED)))))
 
 (define (scm-db-txn-write-begin scm-env) (SCM SCM)
@@ -162,19 +171,11 @@
   (set txn:env (scm->db-env scm-env))
   (status-require (db-txn-write-begin txn))
   (label exit
-    (if status-is-success (return (db-txn->scm txn))
+    (if status-is-success (return (scm-from-db-txn txn))
       (begin
         (free txn)
-        (status->scm-error status)
+        (scm-from-status-error status)
         (return SCM-UNSPECIFIED)))))
-
-(define (scm-db-status-description id-status id-group) (SCM SCM SCM)
-  status-declare
-  (status-set-both (scm->int id-group) (scm->int id-status))
-  (scm-from-latin1-string (db-status-description status)))
-
-(define (scm-db-status-group-id->name a) (SCM SCM)
-  (scm-from-latin1-symbol (db-status-group-id->name (scm->int a))))
 
 (define (scm-db-type-create scm-env scm-name scm-fields scm-flags) (SCM SCM SCM SCM SCM)
   status-declare
@@ -215,7 +216,7 @@
   (status-require (db-type-create (scm->db-env scm-env) name fields fields-len flags &type))
   (label exit
     (scm-dynwind-end)
-    (status->scm-return (db-type->scm type (scm->db-env scm-env)))))
+    (scm-from-status-return (scm-from-db-type type))))
 
 (define (scm-db-type-get scm-env scm-name-or-id) (SCM SCM SCM)
   (declare
@@ -230,16 +231,16 @@
     (set type (db-type-get-by-id (scm->db-env scm-env) (scm->uint scm-name-or-id))))
   (scm-dynwind-end)
   (return
-    (if* type (db-type->scm type (scm->db-env scm-env))
+    (if* type (scm-from-db-type type)
       SCM-BOOL-F)))
 
-(define (scm-db-type-delete scm-type) (SCM SCM)
+(define (scm-db-type-delete scm-env scm-type) (SCM SCM SCM)
   status-declare
-  (status-require (db-type-delete (scm-type->db-env scm-type) (: (scm->db-type scm-type) id)))
+  (status-require (db-type-delete (scm->db-env scm-env) (: (scm->db-type scm-type) id)))
   (label exit
-    (status->scm-return SCM-UNSPECIFIED)))
+    (scm-from-status-return SCM-UNSPECIFIED)))
 
-(define (scm-db-index-create scm-type scm-fields) (SCM SCM SCM)
+(define (scm-db-index-create scm-env scm-type scm-fields) (SCM SCM SCM SCM)
   status-declare
   (declare
     fields db-fields-len-t*
@@ -247,11 +248,11 @@
     index db-index-t*)
   (status-require (scm->field-offsets scm-type scm-fields &fields &fields-len))
   (status-require
-    (db-index-create (scm-type->db-env scm-type) (scm->db-type scm-type) fields fields-len &index))
+    (db-index-create (scm->db-env scm-env) (scm->db-type scm-type) fields fields-len &index))
   (label exit
-    (status->scm-return (db-index->scm index (scm-type->db-env scm-type)))))
+    (scm-from-status-return (scm-from-db-index index))))
 
-(define (scm-db-index-get scm-type scm-fields) (SCM SCM SCM)
+(define (scm-db-index-get scm-env scm-type scm-fields) (SCM SCM SCM SCM)
   status-declare
   (declare
     fields db-fields-len-t*
@@ -260,24 +261,24 @@
   (status-require (scm->field-offsets scm-type scm-fields &fields &fields-len))
   (set index (db-index-get (scm->db-type scm-type) fields fields-len))
   (label exit
-    (status->scm-return
-      (if* index (db-index->scm index (scm-type->db-env scm-type))
+    (scm-from-status-return
+      (if* index (scm-from-db-index index)
         SCM-BOOL-F))))
 
-(define (scm-db-index-delete scm-index) (SCM SCM)
+(define (scm-db-index-delete scm-env scm-index) (SCM SCM SCM)
   status-declare
-  (status-require (db-index-delete (scm-index->db-env scm-index) (scm->db-index scm-index)))
+  (status-require (db-index-delete (scm->db-env scm-env) (scm->db-index scm-index)))
   (label exit
-    (status->scm-return SCM-UNSPECIFIED)))
+    (scm-from-status-return SCM-UNSPECIFIED)))
 
-(define (scm-db-index-rebuild scm-index) (SCM SCM)
+(define (scm-db-index-rebuild scm-env scm-index) (SCM SCM SCM)
   status-declare
-  (status-require (db-index-rebuild (scm-index->db-env scm-index) (scm->db-index scm-index)))
+  (status-require (db-index-rebuild (scm->db-env scm-env) (scm->db-index scm-index)))
   (label exit
-    (status->scm-return SCM-UNSPECIFIED)))
+    (scm-from-status-return SCM-UNSPECIFIED)))
 
 (define (scm-db-index-fields scm-index) (SCM SCM)
-  (return (db-index->scm-fields (scm->db-index scm-index))))
+  (return (scm-from-db-index-fields (scm->db-index scm-index))))
 
 (define (scm-db-record-create scm-txn scm-type scm-values) (SCM SCM SCM SCM)
   status-declare
@@ -285,7 +286,7 @@
   (declare
     field-data void*
     field-data-size size-t
-    field-data-is-ref boolean
+    field-data-needs-free boolean
     scm-value SCM
     field-offset db-fields-len-t
     i db-fields-len-t
@@ -303,27 +304,15 @@
     (status-require
       (scm->field-data
         (scm-tail scm-value)
-        (: (+ field-offset type:fields) type) &field-data &field-data-size &field-data-is-ref))
-    (if (not field-data-is-ref) (scm-dynwind-unwind-handler free field-data SCM-F-WIND-EXPLICITLY))
+        (: (+ field-offset type:fields) type) &field-data &field-data-size &field-data-needs-free))
+    (if field-data-needs-free (scm-dynwind-free field-data))
     (db-record-values-set &values field-offset field-data field-data-size)
     (set scm-values (scm-tail scm-values)))
   (sc-comment "save")
   (status-require (db-record-create (pointer-get (scm->db-txn scm-txn)) values &result-id))
   (label exit
     (scm-dynwind-end)
-    (status->scm-return (scm-from-uint result-id))))
-
-(define (db-guile-ordinal-generator state) (db-ordinal-t void*)
-  (declare
-    scm-state SCM
-    scm-generator SCM
-    scm-result SCM)
-  (set
-    scm-state (pointer-get (convert-type state SCM*))
-    scm-generator (scm-first scm-state)
-    scm-result (scm-apply-0 scm-generator (scm-tail scm-state))
-    (pointer-get (convert-type state SCM*)) (scm-cons scm-generator scm-result))
-  (return (scm->uint (scm-first scm-result))))
+    (scm-from-status-return (scm-from-uint result-id))))
 
 (define
   (scm-db-relation-ensure
@@ -359,7 +348,7 @@
   (db-relation-ensure
     (pointer-get (scm->db-txn scm-txn)) left right label ordinal-generator ordinal-state)
   (label exit
-    (status->scm-return SCM-BOOL-T)))
+    (scm-from-status-return SCM-BOOL-T)))
 
 (define (scm-db-id-type a) (SCM SCM) (scm-from-uint (db-id-type (scm->uint a))))
 (define (scm-db-id-element a) (SCM SCM) (scm-from-uint (db-id-element (scm->uint a))))
@@ -372,54 +361,59 @@
   (declare
     ids db-ids-t
     records db-records-t
-    result SCM)
+    result SCM
+    txn db-txn-t)
+  (set txn (pointer-get (scm->db-txn scm-txn)))
   (scm-dynwind-begin 0)
   (status-require (scm->db-ids scm-ids &ids))
   (scm-dynwind-free ids.start)
   (status-require (db-records-new (db-ids-length ids) &records))
   (scm-dynwind-free records.start)
-  (status-require (db-record-get (pointer-get (scm->db-txn scm-txn)) ids &records))
-  (set result (db-records->scm records))
+  (status-require (db-record-get txn ids &records))
+  (set result (scm-from-db-records records))
   (label exit
     (scm-dynwind-end)
-    (status->scm-return result)))
+    (scm-from-status-return result)))
 
-(define
-  (scm-db-relation-select scm-txn scm-left scm-right scm-label scm-retrieve scm-ordinal scm-offset)
-  (SCM SCM SCM SCM SCM SCM SCM SCM)
+(define (scm-db-relation-select scm-txn scm-left scm-right scm-label scm-retrieve scm-ordinal)
+  (SCM SCM SCM SCM SCM SCM SCM)
   status-declare
   (declare
-    left db-ids-t
-    right db-ids-t
-    scm-ordinal-min SCM
-    relations->scm (function-pointer SCM db-relations-t)
-    scm-ordinal-max SCM
     label db-ids-t
-    left-pointer db-ids-t*
-    right-pointer db-ids-t*
     label-pointer db-ids-t*
+    left db-ids-t
+    left-pointer db-ids-t*
+    offset uint32-t
     ordinal db-ordinal-condition-t
     ordinal-pointer db-ordinal-condition-t*
-    offset uint32-t
+    right db-ids-t
+    right-pointer db-ids-t*
+    scm-from-relations (function-pointer SCM db-relations-t)
+    scm-ordinal-max SCM
+    scm-ordinal-min SCM
+    scm-selection SCM
     selection db-guile-relation-selection-t*)
   (if (or (scm-is-null scm-left) (scm-is-null scm-right) (scm-is-null scm-label))
-    (return (db-selection->scm 0)))
-  (sc-comment "dont start the dynwind context sooner or it might not be finished")
+    (return (scm-from-db-selection 0)))
+  (sc-comment "dont call dynwind-begin sooner or dynwind-end might not be called")
   (scm-dynwind-begin 0)
   (sc-comment "left/right/label")
   (if (scm-is-pair scm-left)
     (begin
       (status-require (scm->db-ids scm-left &left))
+      (scm-dynwind-unwind-handler free left.start 0)
       (set left-pointer &left))
     (set left-pointer 0))
   (if (scm-is-pair scm-right)
     (begin
       (status-require (scm->db-ids scm-right &right))
+      (scm-dynwind-unwind-handler free right.start 0)
       (set right-pointer &right))
     (set right-pointer 0))
   (if (scm-is-pair scm-right)
     (begin
       (status-require (scm->db-ids scm-label &label))
+      (scm-dynwind-unwind-handler free right.start 0)
       (set label-pointer &label))
     (set label-pointer 0))
   (sc-comment "ordinal")
@@ -435,44 +429,80 @@
         0)
       ordinal-pointer &ordinal)
     (set ordinal-pointer 0))
-  (sc-comment "offset")
-  (set offset
-    (if* (scm-is-integer scm-offset) (scm->uint32 scm-offset)
-      0))
   (sc-comment "retrieve")
-  (set relations->scm
-    (if* (scm-is-symbol scm-retrieve)
-      (case* scm-is-eq scm-retrieve
-        (scm-symbol-right db-relations->scm-retrieve-right)
-        (scm-symbol-left db-relations->scm-retrieve-left)
-        (scm-symbol-label db-relations->scm-retrieve-label)
-        (scm-symbol-ordinal db-relations->scm-retrieve-ordinal)
-        (else 0))
-      db-relations->scm))
-  (if (not relations->scm)
-    (status-set-both-goto db-status-group-db-guile status-id-invalid-argument))
+  (if (scm-is-symbol scm-retrieve)
+    (case scm-is-eq scm-retrieve
+      (scm-symbol-right (set scm-from-relations scm-from-db-relations-retrieve-right))
+      (scm-symbol-left (set scm-from-relations scm-from-db-relations-retrieve-left))
+      (scm-symbol-label (set scm-from-relations scm-from-db-relations-retrieve-label))
+      (scm-symbol-ordinal (set scm-from-relations scm-from-db-relations-retrieve-ordinal))
+      (else (status-set-both-goto db-status-group-db-guile status-id-invalid-argument)))
+    (set scm-from-relations scm-from-db-relations))
   (sc-comment "db-relation-select")
   (status-require (db-helper-malloc (sizeof db-guile-relation-selection-t) &selection))
   (scm-dynwind-unwind-handler free selection 0)
   (status-require
     (db-relation-select
       (pointer-get (scm->db-txn scm-txn))
-      left-pointer right-pointer label-pointer ordinal-pointer offset &selection:selection))
+      left-pointer right-pointer label-pointer ordinal-pointer &selection:selection))
   (set
     selection:left left
     selection:right right
     selection:label label
-    selection:relations->scm relations->scm)
+    selection:scm-from-relations scm-from-relations)
+  (set scm-selection (scm-from-db-selection selection))
+  (db-guile-selection-register selection db-guile-selection-type-relation)
   (label exit
     (scm-dynwind-end)
-    (status->scm-return (db-selection->scm selection))))
+    (scm-from-status-return scm-selection)))
 
+(define (scm-db-record-select scm-txn scm-type scm-matcher scm-matcher-state) (SCM SCM SCM SCM SCM)
+  status-declare
+  (declare
+    matcher db-record-matcher-t
+    matcher-state void*
+    scm-selection SCM
+    scm-state SCM
+    selection db-record-selection-t*)
+  (sc-comment "matcher")
+  (if (scm-is-true (scm-procedure? scm-matcher))
+    (set
+      scm-state
+      (scm-cons
+        scm-matcher
+        (if* (scm-is-true (scm-list? scm-matcher-state)) scm-matcher-state
+          (scm-list-1 scm-matcher-state)))
+      matcher-state &scm-state
+      matcher db-guile-record-matcher)
+    (set
+      matcher 0
+      matcher-state 0))
+  (sc-comment "record-select")
+  (set selection (scm-gc-calloc (sizeof db-record-selection-t) "record-selection"))
+  (scm-dynwind-unwind-handler free selection 0)
+  (status-require
+    (db-record-select
+      (pointer-get (scm->db-txn scm-txn)) (scm->db-type scm-type) matcher matcher-state selection))
+  (set scm-selection (scm-from-db-selection selection))
+  (db-guile-selection-register selection db-guile-selection-type-relation)
+  (label exit
+    (scm-from-status-return scm-selection)))
+
+(define (scm-db-record-ref scm-type scm-record scm-field) (SCM SCM SCM SCM)
+  (declare
+    value db-record-value-t
+    type db-type-t*
+    field-offset db-fields-len-t)
+  (set
+    field-offset (scm->uint scm-field)
+    value
+    (db-record-ref (scm->db-type scm-type) (pointer-get (scm->db-record scm-record)) field-offset))
+  (return (scm-from-field-data value (: (+ field-offset type:fields) type))))
+
+(define (scm-db-relation-read scm-selection scm-count) (SCM SCM SCM))
 ; db-record-ref
 ; db-record->record
-(define (scm-db-relation-read scm-selection scm-count) (SCM SCM SCM))
-(define (scm-db-record-select scm-txn) (SCM SCM))
 (define (scm-db-record-read scm-txn) (SCM SCM))
-(define (scm-db-record-ref scm-type scm-record scm-field) (SCM SCM SCM SCM))
 (define (scm-db-index-select scm-txn) (SCM SCM))
 (define (scm-db-index-read scm-txn) (SCM SCM))
 (define (scm-db-record-index-select scm-txn) (SCM SCM))
@@ -489,6 +519,10 @@
     scm-symbol-min (scm-from-latin1-symbol "min")
     scm-symbol-max (scm-from-latin1-symbol "max")
     scm-symbol-binary (scm-from-latin1-symbol "binary")
+    scm-symbol-binary8 (scm-from-latin1-symbol "binary8")
+    scm-symbol-binary16 (scm-from-latin1-symbol "binary16")
+    scm-symbol-binary32 (scm-from-latin1-symbol "binary32")
+    scm-symbol-binary64 (scm-from-latin1-symbol "binary64")
     scm-symbol-data (scm-from-latin1-symbol "data")
     scm-symbol-float32 (scm-from-latin1-symbol "float32")
     scm-symbol-float64 (scm-from-latin1-symbol "float64")
@@ -512,14 +546,12 @@
     type-slots (scm-list-1 scm-symbol-data)
     scm-type-env (scm-make-foreign-object-type (scm-from-latin1-symbol "db-env") type-slots 0)
     scm-type-txn (scm-make-foreign-object-type (scm-from-latin1-symbol "db-txn") type-slots 0)
-    type-slots (scm-list-2 scm-symbol-data (scm-from-latin1-symbol "env"))
-    scm-type-type (scm-make-foreign-object-type (scm-from-latin1-symbol "db-type") type-slots 0)
-    scm-type-index (scm-make-foreign-object-type (scm-from-latin1-symbol "db-index") type-slots 0)
-    type-slots
-    (scm-list-3 (scm-from-latin1-symbol "id") (scm-from-latin1-symbol "size") scm-symbol-data)
     scm-type-record (scm-make-foreign-object-type (scm-from-latin1-symbol "db-record") type-slots 0)
     scm-type-selection
-    (scm-make-foreign-object-type (scm-from-latin1-symbol "db-selection") type-slots 0))
+    (scm-make-foreign-object-type (scm-from-latin1-symbol "db-selection") type-slots 0) type-slots
+    (scm-list-2 scm-symbol-data (scm-from-latin1-symbol "env")) scm-type-type
+    (scm-make-foreign-object-type (scm-from-latin1-symbol "db-type") type-slots 0) scm-type-index
+    (scm-make-foreign-object-type (scm-from-latin1-symbol "db-index") type-slots 0))
   ; exports
   scm-c-define-procedure-c-init
   (define m SCM (scm-c-resolve-module "sph db"))
@@ -543,7 +575,7 @@
   (scm-c-define-procedure-c
     "db-status-group-id->name" 1 0 0 scm-db-status-group-id->name "integer -> symbol")
   (scm-c-define-procedure-c "db-type-create" 3 1 0 scm-db-type-create "")
-  (scm-c-define-procedure-c "db-type-delete" 1 0 0 scm-db-type-delete "")
+  (scm-c-define-procedure-c "db-type-delete" 2 0 0 scm-db-type-delete "")
   (scm-c-define-procedure-c "db-type-get" 2 0 0 scm-db-type-get "")
   (scm-c-define-procedure-c "db-type-id" 1 0 0 scm-db-type-id "")
   (scm-c-define-procedure-c "db-type-name" 1 0 0 scm-db-type-name "")
@@ -551,10 +583,12 @@
   (scm-c-define-procedure-c "db-type-fields" 1 0 0 scm-db-type-fields "")
   (scm-c-define-procedure-c "db-type-virtual?" 1 0 0 scm-db-type-virtual? "")
   (scm-c-define-procedure-c "db-type-flags" 1 0 0 scm-db-type-flags "")
-  (scm-c-define-procedure-c "db-index-create" 2 0 0 scm-db-index-create "")
-  (scm-c-define-procedure-c "db-index-delete" 1 0 0 scm-db-index-delete "")
-  (scm-c-define-procedure-c "db-index-get" 2 0 0 scm-db-index-get "")
-  (scm-c-define-procedure-c "db-index-rebuild" 1 0 0 scm-db-index-rebuild "")
+  (scm-c-define-procedure-c "db-index-create" 3 0 0 scm-db-index-create "")
+  (scm-c-define-procedure-c "db-index-delete" 2 0 0 scm-db-index-delete "env index -> unspecified")
+  (scm-c-define-procedure-c
+    "db-index-get" 3 0 0 scm-db-index-get "env type fields:(integer:offset ...) -> index")
+  (scm-c-define-procedure-c
+    "db-index-rebuild" 2 0 0 scm-db-index-rebuild "env index -> unspecified")
   (scm-c-define-procedure-c "db-index-fields" 1 0 0 scm-db-index-fields "")
   (scm-c-define-procedure-c "db-id-type" 1 0 0 scm-db-id-type "")
   (scm-c-define-procedure-c "db-id-element" 1 0 0 scm-db-id-element "")

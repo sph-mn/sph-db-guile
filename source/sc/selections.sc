@@ -21,7 +21,7 @@
       (left db-ids-t)
       (right db-ids-t)
       (label db-ids-t)
-      (relations->scm (function-pointer SCM db-relations-t))
+      (scm-from-relations (function-pointer SCM db-relations-t))
       (selection db-relation-selection-t))))
 
 (pre-include "./foreign/sph/mi-list.c")
@@ -66,4 +66,4 @@
   (if a (set db-guile-active-selections a)
     (begin
       (status-set-both db-status-group-db db-status-id-memory)
-      (status->scm-error status))))
+      (scm-from-status-error status))))

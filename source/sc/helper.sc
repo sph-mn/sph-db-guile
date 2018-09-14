@@ -292,10 +292,10 @@
         result)))
   (return result))
 
-(define (scm-from-field-data a field-type) (SCM db-record-value-t db-field-type-t)
+(define (scm-from-field-data data size field-type) (SCM void* size-t db-field-type-t)
   status-declare
   (declare b SCM)
-  (if (not a.data) (return SCM-BOOL-F))
+  (if (not data) (return SCM-BOOL-F))
   (case = field-type
     ( (db-field-type-binary8
         db-field-type-binary16
@@ -305,8 +305,7 @@
         db-field-type-binary16f
         db-field-type-binary32f
         db-field-type-binary64f db-field-type-binary128f db-field-type-binary256f)
-      (set b (scm-c-make-bytevector a.size))
-      (memcpy (SCM_BYTEVECTOR_CONTENTS b) a.data a.size) (return b))
+      (set b (scm-c-make-bytevector size)) (memcpy (SCM_BYTEVECTOR_CONTENTS b) data size) (return b))
     ( (db-field-type-string8
         db-field-type-string16
         db-field-type-string32
@@ -315,21 +314,21 @@
         db-field-type-string16f
         db-field-type-string32f
         db-field-type-string64f db-field-type-string128f db-field-type-string256f)
-      (return (scm-from-utf8-stringn a.data a.size)))
-    (db-field-type-uint64f (return (scm-from-uint64 (pointer-get (convert-type a.data uint64-t*)))))
-    (db-field-type-uint32f (return (scm-from-uint32 (pointer-get (convert-type a.data uint32-t*)))))
-    (db-field-type-uint16f (return (scm-from-uint16 (pointer-get (convert-type a.data uint16-t*)))))
-    (db-field-type-uint8f (return (scm-from-uint8 (pointer-get (convert-type a.data uint8-t*)))))
-    (db-field-type-int64f (return (scm-from-int64 (pointer-get (convert-type a.data int64-t*)))))
-    (db-field-type-int32f (return (scm-from-int32 (pointer-get (convert-type a.data int32-t*)))))
-    (db-field-type-int16f (return (scm-from-int16 (pointer-get (convert-type a.data int16-t*)))))
-    (db-field-type-int8f (return (scm-from-int8 (pointer-get (convert-type a.data int8-t*)))))
-    (db-field-type-float64f (return (scm-from-double (pointer-get (convert-type a.data double*)))))
+      (return (scm-from-utf8-stringn data size)))
+    (db-field-type-uint64f (return (scm-from-uint64 (pointer-get (convert-type data uint64-t*)))))
+    (db-field-type-uint32f (return (scm-from-uint32 (pointer-get (convert-type data uint32-t*)))))
+    (db-field-type-uint16f (return (scm-from-uint16 (pointer-get (convert-type data uint16-t*)))))
+    (db-field-type-uint8f (return (scm-from-uint8 (pointer-get (convert-type data uint8-t*)))))
+    (db-field-type-int64f (return (scm-from-int64 (pointer-get (convert-type data int64-t*)))))
+    (db-field-type-int32f (return (scm-from-int32 (pointer-get (convert-type data int32-t*)))))
+    (db-field-type-int16f (return (scm-from-int16 (pointer-get (convert-type data int16-t*)))))
+    (db-field-type-int8f (return (scm-from-int8 (pointer-get (convert-type data int8-t*)))))
+    (db-field-type-float64f (return (scm-from-double (pointer-get (convert-type data double*)))))
     ( (db-field-type-uint128f db-field-type-uint256f db-field-type-int128f db-field-type-int256f)
-      (set b (scm-c-make-bytevector a.size))
-      (memcpy (SCM-BYTEVECTOR-CONTENTS b) a.data a.size)
+      (set b (scm-c-make-bytevector size))
+      (memcpy (SCM-BYTEVECTOR-CONTENTS b) data size)
       (return
-        (scm-first (scm-bytevector->uint-list b scm-endianness-little (scm-from-size-t a.size)))))
+        (scm-first (scm-bytevector->uint-list b scm-endianness-little (scm-from-size-t size)))))
     (else (status-set-both-goto status-group-db-guile status-id-field-value-invalid)))
   (label exit
     (scm-from-status-return SCM-UNSPECIFIED)))

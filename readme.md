@@ -105,7 +105,7 @@ defaults are set by sph-db.
 |filesystem-has-ordered-writes|boolean||
 |env-open-flags|integer|lmdb environment options|
 
-note: selections are bound to threads, the lmdb option MDB-NOTLS would probably not work
+note: db-guile selections are bound to threads, the lmdb option MDB-NOTLS would probably not work
 
 # internals
 the main extensions of this binding are:

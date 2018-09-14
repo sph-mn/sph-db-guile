@@ -197,13 +197,18 @@
       (set
         i (+ 1 i)
         scm-fields (scm-tail scm-fields)))
-    (set
-      scm-field (scm-first scm-fields)
-      field-name (scm->utf8-stringn (scm-first scm-field) 0))
-    (scm-dynwind-free field-name)
-    (set
-      field-name-len (strlen field-name)
-      field-type (scm->db-field-type (scm-tail scm-field)))
+    (set scm-field (scm-first scm-fields))
+    (if (scm-is-symbol scm-field)
+      (set
+        field-type (scm->db-field-type scm-field)
+        field-name "")
+      (begin
+        (sc-comment "pair")
+        (set
+          field-name (scm->utf8-stringn (scm-first scm-field) 0)
+          field-type (scm->db-field-type (scm-tail scm-field))
+          field-name-len (strlen field-name))
+        (scm-dynwind-free field-name)))
     (db-field-set (array-get fields i) field-type field-name field-name-len))
   (status-require (db-type-create (scm->db-env scm-env) name fields fields-len flags &type))
   (label exit
@@ -281,7 +286,6 @@
     field-data-needs-free boolean
     scm-value SCM
     field-offset db-fields-len-t
-    i db-fields-len-t
     result-id db-id-t
     type db-type-t*)
   (set type (scm->db-type scm-type))
@@ -503,7 +507,7 @@
     type (scm->db-type scm-type)
     field-offset (scm->uintmax scm-field)
     value (db-record-ref type (pointer-get (scm->db-record scm-record)) field-offset))
-  (return (scm-from-field-data value (: (+ field-offset type:fields) type))))
+  (return (scm-from-field-data value.data value.size (: (+ field-offset type:fields) type))))
 
 (define (scm-db-record->vector scm-type scm-record) (SCM SCM SCM)
   (declare
@@ -518,7 +522,8 @@
     result (scm-c-make-vector fields-len SCM-BOOL-F))
   (for ((set i 0) (< i fields-len) (set i (+ 1 i)))
     (set value (db-record-ref type (pointer-get (scm->db-record scm-record)) i))
-    (scm-c-vector-set! result i (scm-from-field-data value (: (+ i type:fields) type))))
+    (scm-c-vector-set!
+      result i (scm-from-field-data value.data value.size (: (+ i type:fields) type))))
   (return result))
 
 (define (scm-db-record-read scm-selection scm-count) (SCM SCM SCM)
@@ -571,27 +576,87 @@
     db-status-success-if-notfound
     (scm-from-status-return result)))
 
-(define (scm-db-record-update scm-txn scm-id scm-values) (SCM SCM SCM SCM))
+(define (scm-db-record-update scm-txn scm-type scm-id scm-values) (SCM SCM SCM SCM SCM)
+  status-declare
+  (db-record-values-declare values)
+  (declare
+    field-data-size size-t
+    scm-value SCM
+    field-data-needs-free boolean
+    field-offset db-fields-len-t
+    field-data void*
+    type db-type-t*)
+  (set type (scm->db-type scm-type))
+  (scm-dynwind-begin 0)
+  (sc-comment "convert values")
+  (status-require (db-record-values-new type &values))
+  (scm-dynwind-unwind-handler
+    (convert-type db-record-values-free (function-pointer void void*)) &values SCM-F-WIND-EXPLICITLY)
+  (while (not (scm-is-null scm-values))
+    (set scm-value (scm-first scm-values))
+    (status-require (scm->field-offset (scm-first scm-value) type &field-offset))
+    (status-require
+      (scm->field-data
+        (scm-tail scm-value)
+        (: (+ field-offset type:fields) type) &field-data &field-data-size &field-data-needs-free))
+    (if field-data-needs-free (scm-dynwind-free field-data))
+    (db-record-values-set &values field-offset field-data field-data-size)
+    (set scm-values (scm-tail scm-values)))
+  (sc-comment "record-update")
+  (status-require
+    (db-record-update (pointer-get (scm->db-txn scm-txn)) (scm->uintmax scm-id) values))
+  (label exit
+    (scm-dynwind-end)
+    (scm-from-status-return SCM-UNSPECIFIED)))
+
 (define (scm-db-index-select scm-txn scm-count) (SCM SCM SCM))
 (define (scm-db-index-read scm-txn) (SCM SCM))
 (define (scm-db-record-index-select scm-txn) (SCM SCM))
 (define (scm-db-record-index-read scm-txn scm-count) (SCM SCM SCM))
 
-#;(define (scm-db-record-virtual scm-type scm-data) (SCM SCM SCM)
-  ; get field type
-  ; convert to data
-  ; check if size fits
-  ; return id
-  (cond
-    ((scm-is-integer scm-data))
-    ((scm-is-bytevector scm-data))
-    ((scm-is-bytevector scm-data))
-    ((scm-is-rational scm-data))
-    )
-  )
+(define (scm-db-record-virtual scm-type scm-data) (SCM SCM SCM)
+  status-declare
+  (declare
+    field-data void*
+    field-data-needs-free boolean
+    field-data-size size-t
+    field-type db-field-type-t
+    type db-type-t*
+    id db-id-t)
+  (set
+    type (scm->db-type scm-type)
+    field-type (struct-get (pointer-get type:fields) type))
+  (sc-comment "assumes that no virtual types with invalid field sizes can be created")
+  (status-require
+    (scm->field-data scm-data field-type &field-data &field-data-size &field-data-needs-free))
+  (set id (db-record-virtual type:id field-data field-data-size))
+  (if field-data-needs-free (free field-data))
+  (label exit
+    (scm-from-status-return (scm-from-uintmax id))))
+
+(define (scm-db-record-virtual-data scm-type scm-id) (SCM SCM SCM)
+  status-declare
+  (declare
+    data void*
+    size size-t
+    id db-id-t
+    field-type db-field-type-t
+    type db-type-t*
+    result SCM)
+  (set
+    result SCM-BOOL-F
+    id (scm->uintmax scm-id)
+    type (scm->db-type scm-type)
+    size type:fields:size)
+  (status-require (db-helper-malloc size &data))
+  (set
+    data (db-record-virtual-data id data size)
+    result (scm-from-field-data data size type:fields:type))
+  (label exit
+    (scm-from-status-return result)))
 
 (define (db-guile-init) void
-  "prepare scm valuaes and register guile bindings"
+  "prepare scm values and register guile bindings"
   (declare
     type-slots SCM
     scm-symbol-data SCM)
@@ -703,4 +768,10 @@
   (scm-c-define-procedure-c
     "db-record-get" 2 0 0 scm-db-record-get "txn list:ids -> (db-record ...)")
   (scm-c-define-procedure-c
-    "db-record->vector" 2 0 0 scm-db-record->vector "type db-record -> vector:#(any:value ...)"))
+    "db-record->vector" 2 0 0 scm-db-record->vector "type db-record -> vector:#(any:value ...)")
+  (scm-c-define-procedure-c
+    "db-record-update"
+    4 0 0 scm-db-record-update "db-txn db-type id list:((field-id . value) ...) -> unspecified")
+  (scm-c-define-procedure-c "db-record-virtual" 2 0 0 scm-db-record-virtual "type data -> id")
+  (scm-c-define-procedure-c
+    "db-record-virtual-data" 2 0 0 scm-db-record-virtual-data "db-env id -> any:data"))

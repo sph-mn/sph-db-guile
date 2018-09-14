@@ -20,6 +20,9 @@
     db-record-read
     db-record-ref
     db-record-select
+    db-record-update
+    db-record-virtual
+    db-record-virtual-data
     db-relation-ensure
     db-relation-field-names
     db-relation-label
@@ -43,6 +46,7 @@
     db-type-create
     db-type-delete
     db-type-fields
+    db-type-flag-virtual
     db-type-flags
     db-type-get
     db-type-id

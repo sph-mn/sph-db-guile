@@ -228,10 +228,16 @@ SCM scm_db_type_create(SCM scm_env,
   for (i = 0; (i < fields_len);
        i = (1 + i), scm_fields = scm_tail(scm_fields)) {
     scm_field = scm_first(scm_fields);
-    field_name = scm_to_utf8_stringn((scm_first(scm_field)), 0);
-    scm_dynwind_free(field_name);
-    field_name_len = strlen(field_name);
-    field_type = scm_to_db_field_type((scm_tail(scm_field)));
+    if (scm_is_symbol(scm_field)) {
+      field_type = scm_to_db_field_type(scm_field);
+      field_name = "";
+    } else {
+      /* pair */
+      field_name = scm_to_utf8_stringn((scm_first(scm_field)), 0);
+      field_type = scm_to_db_field_type((scm_tail(scm_field)));
+      field_name_len = strlen(field_name);
+      scm_dynwind_free(field_name);
+    };
     db_field_set((fields[i]), field_type, field_name, field_name_len);
   };
   status_require((db_type_create(
@@ -313,7 +319,6 @@ SCM scm_db_record_create(SCM scm_txn, SCM scm_type, SCM scm_values) {
   boolean field_data_needs_free;
   SCM scm_value;
   db_fields_len_t field_offset;
-  db_fields_len_t i;
   db_id_t result_id;
   db_type_t* type;
   type = scm_to_db_type(scm_type);
@@ -564,7 +569,8 @@ SCM scm_db_record_ref(SCM scm_type, SCM scm_record, SCM scm_field) {
   type = scm_to_db_type(scm_type);
   field_offset = scm_to_uintmax(scm_field);
   value = db_record_ref(type, (*(scm_to_db_record(scm_record))), field_offset);
-  return ((scm_from_field_data(value, ((field_offset + type->fields)->type))));
+  return ((scm_from_field_data(
+    (value.data), (value.size), ((field_offset + type->fields)->type))));
 };
 SCM scm_db_record_to_vector(SCM scm_type, SCM scm_record) {
   db_fields_len_t fields_len;
@@ -577,8 +583,10 @@ SCM scm_db_record_to_vector(SCM scm_type, SCM scm_record) {
   result = scm_c_make_vector(fields_len, SCM_BOOL_F);
   for (i = 0; (i < fields_len); i = (1 + i)) {
     value = db_record_ref(type, (*(scm_to_db_record(scm_record))), i);
-    scm_c_vector_set_x(
-      result, i, (scm_from_field_data(value, ((i + type->fields)->type))));
+    scm_c_vector_set_x(result,
+      i,
+      (scm_from_field_data(
+        (value.data), (value.size), ((i + type->fields)->type))));
   };
   return (result);
 };
@@ -633,12 +641,93 @@ exit:
   db_status_success_if_notfound;
   scm_from_status_return(result);
 };
-SCM scm_db_record_update(SCM scm_txn, SCM scm_id, SCM scm_values);
+SCM scm_db_record_update(SCM scm_txn,
+  SCM scm_type,
+  SCM scm_id,
+  SCM scm_values) {
+  status_declare;
+  db_record_values_declare(values);
+  size_t field_data_size;
+  SCM scm_value;
+  boolean field_data_needs_free;
+  db_fields_len_t field_offset;
+  void* field_data;
+  db_type_t* type;
+  type = scm_to_db_type(scm_type);
+  scm_dynwind_begin(0);
+  /* convert values */
+  status_require((db_record_values_new(type, (&values))));
+  scm_dynwind_unwind_handler(((void (*)(void*))(db_record_values_free)),
+    (&values),
+    SCM_F_WIND_EXPLICITLY);
+  while (!scm_is_null(scm_values)) {
+    scm_value = scm_first(scm_values);
+    status_require(
+      (scm_to_field_offset((scm_first(scm_value)), type, (&field_offset))));
+    status_require((scm_to_field_data((scm_tail(scm_value)),
+      ((field_offset + type->fields)->type),
+      (&field_data),
+      (&field_data_size),
+      (&field_data_needs_free))));
+    if (field_data_needs_free) {
+      scm_dynwind_free(field_data);
+    };
+    db_record_values_set((&values), field_offset, field_data, field_data_size);
+    scm_values = scm_tail(scm_values);
+  };
+  /* record-update */
+  status_require((db_record_update(
+    (*(scm_to_db_txn(scm_txn))), (scm_to_uintmax(scm_id)), values)));
+exit:
+  scm_dynwind_end();
+  scm_from_status_return(SCM_UNSPECIFIED);
+};
 SCM scm_db_index_select(SCM scm_txn, SCM scm_count);
 SCM scm_db_index_read(SCM scm_txn);
 SCM scm_db_record_index_select(SCM scm_txn);
 SCM scm_db_record_index_read(SCM scm_txn, SCM scm_count);
-/** prepare scm valuaes and register guile bindings */
+SCM scm_db_record_virtual(SCM scm_type, SCM scm_data) {
+  status_declare;
+  void* field_data;
+  boolean field_data_needs_free;
+  size_t field_data_size;
+  db_field_type_t field_type;
+  db_type_t* type;
+  db_id_t id;
+  type = scm_to_db_type(scm_type);
+  field_type = (*(type->fields)).type;
+  /* assumes that no virtual types with invalid field sizes can be created */
+  status_require((scm_to_field_data(scm_data,
+    field_type,
+    (&field_data),
+    (&field_data_size),
+    (&field_data_needs_free))));
+  id = db_record_virtual((type->id), field_data, field_data_size);
+  if (field_data_needs_free) {
+    free(field_data);
+  };
+exit:
+  scm_from_status_return((scm_from_uintmax(id)));
+};
+SCM scm_db_record_virtual_data(SCM scm_type, SCM scm_id) {
+  status_declare;
+  void* data;
+  size_t size;
+  db_id_t id;
+  db_field_type_t field_type;
+  db_type_t* type;
+  SCM result;
+  result = SCM_BOOL_F;
+  id = scm_to_uintmax(scm_id);
+  type = scm_to_db_type(scm_type);
+  size = type->fields->size;
+  status_require((db_helper_malloc(size, (&data))));
+  data = db_record_virtual_data(id, data, size);
+  result = scm_from_field_data(data, size, (type->fields->type));
+exit:
+  scm_from_status_return(result);
+};
+/** prepare scm values and register guile bindings */
 void db_guile_init() {
   SCM type_slots;
   SCM scm_symbol_data;
@@ -806,4 +895,18 @@ void db_guile_init() {
     0,
     scm_db_record_to_vector,
     ("type db-record -> vector:#(any:value ...)"));
+  scm_c_define_procedure_c("db-record-update",
+    4,
+    0,
+    0,
+    scm_db_record_update,
+    ("db-txn db-type id list:((field-id . value) ...) -> unspecified"));
+  scm_c_define_procedure_c(
+    "db-record-virtual", 2, 0, 0, scm_db_record_virtual, ("type data -> id"));
+  scm_c_define_procedure_c("db-record-virtual-data",
+    2,
+    0,
+    0,
+    scm_db_record_virtual_data,
+    ("db-env id -> any:data"));
 };

@@ -1,6 +1,7 @@
 (define-test-module (test module sph db)
   (import
     (sph db)
+    (rnrs bytevectors)
     (sph list)
     (test helper sph db))
 
@@ -113,14 +114,30 @@
                 (results (db-relation-read selection 100)))
               (and (not (null? results)) (every vector? results))))))))
 
-  (define-procedure-tests tests
-    ;(db-relation-ensure)
-    ;(db-record-select)
-    ;(db-relation-select) (db-record-create)
-    ;(db-type) (db-index) (db-env) (db-txn) (db-statistics)
-    )
+  (define-test (db-record-virtual env)
+    "float currently not supported as guile only supports 64 bit float which dont fit in ids"
+    (let*
+      ( (type-uint (db-type-create env "vtype-uint" (list-q uint16f) db-type-flag-virtual))
+        (type-int (db-type-create env "vtype-int" (list-q int8f) db-type-flag-virtual))
+        (type-string (db-type-create env "vtype-string16f" (list-q string8f) db-type-flag-virtual))
+        (type-binary (db-type-create env "vtype-binary16f" (list-q binary8f) db-type-flag-virtual)))
+      (assert-and (every db-type-virtual? (list type-uint type-int type-string type-binary))
+        (every
+          (l (a)
+            (let ((type (first a)) (value (tail a)))
+              (equal? value (db-record-virtual-data type (db-record-virtual type value)))))
+          (list (pair type-uint 123) (pair type-int -123)
+            (pair type-string "1") (pair type-binary (string->utf8 "1")))))))
 
-  ;record-matcher
+  (define-test (db-other env)
+    (let* ((id-element 123) (id-type 6500) (id (db-id-add-type id-element id-type)))
+      (and (= id-element (db-id-element id)) (= id-type (db-id-type id)))))
+
+  (define-procedure-tests tests (db-record-virtual)
+    (db-other) (db-relation-ensure)
+    (db-record-select) (db-relation-select)
+    (db-record-create) (db-type) (db-index) (db-env) (db-txn) (db-statistics))
+
   ;record-update
   ;record-delete
   ;relation-delete

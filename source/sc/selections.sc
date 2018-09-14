@@ -1,5 +1,6 @@
 (sc-comment
-  "generic db-selection type with the option to carry data to be freed when the selection isnt needed anymore")
+  "generic db-selection type with the option to carry data to be freed when the selection isnt needed anymore.
+  db-guile-selection-type-t is the list element type")
 
 (pre-define
   db-guile-selections-first mi-list-first
@@ -15,12 +16,19 @@
     (struct
       (selection void*)
       (selection-type db-guile-selection-type-t)))
+  db-guile-record-selection-t
+  (type
+    (struct
+      (matcher SCM)
+      (status-id status-id-t)
+      (selection db-record-selection-t)))
   db-guile-relation-selection-t
   (type
     (struct
       (left db-ids-t)
       (right db-ids-t)
       (label db-ids-t)
+      (status-id status-id-t)
       (scm-from-relations (function-pointer SCM db-relations-t))
       (selection db-relation-selection-t))))
 
@@ -29,13 +37,13 @@
 
 (define (db-guile-selections-free) void
   "finish all selections and associated temporary data of the current thread.
-  to not have to call selection-finish.
+  so that no call to selection-finish is necessary in scheme.
   called by txn-commit or txn-abort.
-  there can only be one transaction per thread per sph-db requirements"
+  there can only be one active transaction per thread per sph-db requirements"
   (declare
     a db-guile-selection-t
     relation-selection db-guile-relation-selection-t
-    record-selection db-record-selection-t*)
+    record-selection db-guile-record-selection-t)
   (while db-guile-active-selections
     (set a (db-guile-selections-first db-guile-active-selections))
     (case = a.selection-type
@@ -47,8 +55,8 @@
         (db-ids-free relation-selection.label)
         (db-ids-free relation-selection.right) (free a.selection))
       (db-guile-selection-type-record
-        (set record-selection a.selection)
-        (db-record-selection-finish a.selection) (free a.selection)))
+        (set record-selection (pointer-get (convert-type a.selection db-guile-record-selection-t*)))
+        (db-record-selection-finish &record-selection.selection) (free a.selection)))
     (set db-guile-active-selections (db-guile-selections-drop db-guile-active-selections))))
 
 (define (db-guile-selection-register db-selection selection-type)

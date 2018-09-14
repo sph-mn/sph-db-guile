@@ -29,8 +29,8 @@
       (l (name fields type)
         (assert-and (equal? 1 (db-type-id type)) (equal? name (db-type-name type))
           (equal? 0 (db-type-flags type)) (equal? fields (db-type-fields type))
-          (null? (db-type-indices type)) (not (not (db-type-get env "test-type")))
-          (begin (db-type-delete env type) (not (db-type-get env "test-type")))))))
+          (null? (db-type-indices type)) (not (not (db-type-get env "type-1")))
+          (begin (db-type-delete env type) (not (db-type-get env "type-1")))))))
 
   (define-test (db-index env)
     (test-helper-type-create-1 env
@@ -41,20 +41,89 @@
             (begin (db-index-rebuild env index) #t) (begin (db-index-delete env index) #t)
             (not (db-index-get env type index-fields)))))))
 
-  (define-test (db-record-create env)
-    (test-helper-type-create-1 env
-      (l (type-name type-fields type-1)
-        (test-helper-records-create-1 env type-1 (l (values ids) (debug-log values ids))))))
-
   (define-test (db-relation-ensure env)
     (db-txn-call-write env
       (l (txn)
         (let ((left (list 1 2 3)) (right (list 4 5)) (label (list 7)))
-          (db-relation-ensure txn left right label)))))
+          (db-relation-ensure txn left right label (l (a) (list a (+ 1 a))) 2)))))
 
-  (define-procedure-tests tests (db-record-create)
-    ;(db-relation-ensure) (db-type) (db-index) (db-env) (db-txn) (db-statistics)
+  (define common-element-count 100)
+
+  (define-test (db-record-create env)
+    (test-helper-type-create-1 env
+      (l (type-name type-1-fields type-1)
+        (test-helper-records-create-1 common-element-count env
+          type-1
+          (l (values ids)
+            (db-txn-call-write env
+              (l (txn)
+                (assert-and (every integer? ids)
+                  (= common-element-count (length (db-record-get txn ids)))
+                  (assert-true "record-get and value compare"
+                    (let*
+                      ( (records (db-record-get txn ids))
+                        (values-read
+                          (map
+                            (l (a)
+                              (compact
+                                (map-with-index (l (index a) (and a (pair index a)))
+                                  (vector->list (db-record->vector type-1 a)))))
+                            records)))
+                      ; check that all inserted values exist in the read values.
+                      ; some extra values may have been read from unset fields (set to zero or something)
+                      (every
+                        (l (values)
+                          (any
+                            (l (values-read)
+                              (every
+                                (l (value)
+                                  (any (l (value-read) (equal? value-read value)) values-read))
+                                values))
+                            values-read))
+                        values)))))))))))
+
+  (define-test (db-record-select env)
+    (test-helper-type-create-1 env
+      (l (type-name type-1-fields type-1)
+        (test-helper-records-create-1 common-element-count env
+          type-1
+          (l (values ids)
+            (db-txn-call-write env
+              (l (txn)
+                (let (selection (db-record-select txn type-1))
+                  (every vector?
+                    (map (l (a) (db-record->vector type-1 a))
+                      (append (db-record-read selection 1)
+                        (db-record-read selection (* 2 common-element-count))))))
+                (let
+                  (selection
+                    (db-record-select txn type-1 (l (type record . state) (pair #t state))))
+                  (every vector?
+                    (map (l (a) (db-record->vector type-1 a))
+                      (append (db-record-read selection 1)
+                        (db-record-read selection (* 2 common-element-count)))))))))))))
+
+  (define-test (db-relation-select env)
+    (test-helper-relations-create-1 env
+      (l (left right label)
+        (db-txn-call-write env
+          (l (txn)
+            (let*
+              ( (selection (db-relation-select txn left right label))
+                (results (db-relation-read selection 100)))
+              (and (not (null? results)) (every vector? results))))))))
+
+  (define-procedure-tests tests
+    ;(db-relation-ensure)
+    ;(db-record-select)
+    ;(db-relation-select) (db-record-create)
+    ;(db-type) (db-index) (db-env) (db-txn) (db-statistics)
     )
+
+  ;record-matcher
+  ;record-update
+  ;record-delete
+  ;relation-delete
 
   (l (settings)
     (let* ((test-runs 1) (settings (test-helper-db-default-test-settings settings)))

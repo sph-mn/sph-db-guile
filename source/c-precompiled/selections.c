@@ -1,5 +1,6 @@
 /* generic db-selection type with the option to carry data to be freed when the
- * selection isnt needed anymore */
+  selection isnt needed anymore. db-guile-selection-type-t is the list element
+  type */
 #define db_guile_selections_first mi_list_first
 #define db_guile_selections_rest mi_list_rest
 #define mi_list_name_prefix db_guile_selections
@@ -13,22 +14,28 @@ typedef struct {
   db_guile_selection_type_t selection_type;
 } db_guile_selection_t;
 typedef struct {
+  SCM matcher;
+  status_id_t status_id;
+  db_record_selection_t selection;
+} db_guile_record_selection_t;
+typedef struct {
   db_ids_t left;
   db_ids_t right;
   db_ids_t label;
+  status_id_t status_id;
   SCM (*scm_from_relations)(db_relations_t);
   db_relation_selection_t selection;
 } db_guile_relation_selection_t;
 #include "./foreign/sph/mi-list.c"
 __thread db_guile_selections_t* db_guile_active_selections = 0;
 /** finish all selections and associated temporary data of the current thread.
-  to not have to call selection-finish.
+  so that no call to selection-finish is necessary in scheme.
   called by txn-commit or txn-abort.
-  there can only be one transaction per thread per sph-db requirements */
+  there can only be one active transaction per thread per sph-db requirements */
 void db_guile_selections_free() {
   db_guile_selection_t a;
   db_guile_relation_selection_t relation_selection;
-  db_record_selection_t* record_selection;
+  db_guile_record_selection_t record_selection;
   while (db_guile_active_selections) {
     a = db_guile_selections_first(db_guile_active_selections);
     if (db_guile_selection_type_relation == a.selection_type) {
@@ -39,8 +46,8 @@ void db_guile_selections_free() {
       db_ids_free((relation_selection.right));
       free((a.selection));
     } else if (db_guile_selection_type_record == a.selection_type) {
-      record_selection = a.selection;
-      db_record_selection_finish((a.selection));
+      record_selection = *((db_guile_record_selection_t*)(a.selection));
+      db_record_selection_finish((&(record_selection.selection)));
       free((a.selection));
     };
     db_guile_active_selections =

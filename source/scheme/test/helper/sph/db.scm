@@ -3,8 +3,9 @@
     test-helper-db-database-root
     test-helper-db-default-test-settings
     test-helper-delete-database-files
-    test-helper-random-data
+    test-helper-field-data
     test-helper-records-create-1
+    test-helper-relations-create-1
     test-helper-type-create-1)
   (import
     (guile)
@@ -21,40 +22,51 @@
   (define test-helper-db-database-root "/tmp/test/sph-db")
   (define (delete-file-if-exists a) (and (file-exists? a) (delete-file a)))
 
-  (define* (test-helper-random-data type size)
+  (define* (test-helper-field-data type size)
+    "should perhaps not be random to make it easier to find errors.
+     if an error occurs with random data, the next test call would produce the same data"
     (case type
       ((int) (first (bytevector->sint-list (random-bytevector size) (endianness little) size)))
       ((uint) (first (bytevector->uint-list (random-bytevector size) (endianness little) size)))
-      ((string) (random-string (random size 1) char-set-vector:hex-digit))
-      ((binary) (string->utf8 (random-string (random size 1) char-set-vector:hex-digit)))
+      ((string) (random-string size char-set-vector:hex-digit))
+      ((binary) (random-bytevector size))
       ((float) (/ (random size 1) 1.1))))
 
   (define (test-helper-type-create-1 env c)
     (let*
       ( (name "type-1")
         (fields
-          (list-q ("field-1" . int64) ("field-2" . uint8)
-            ("field-4" . string512) ("field-5" . float64) ("field-3" . string)))
+          (list-q ("field-1" . int64f) ("field-2" . uint8f)
+            ("field-4" . binary256f) ("field-5" . float64f) ("field-3" . string8)))
         (type (db-type-create env name fields)))
       (c name fields type)))
 
-  (define (test-helper-records-create-1 env type-1 c)
+  ; todo: create type with all field types and test create/read
+
+  (define (test-helper-records-create-1 count env type-1 c)
     (let
       (values
-        (map-integers 5
+        (map-integers count
           (l (a)
             (let
               (a
                 (compact
-                  (list (and (random-boolean) (pair 0 (test-helper-random-data (q int) 8)))
-                    (and (random-boolean) (pair 1 (test-helper-random-data (q uint) 1)))
-                    (and (random-boolean) (pair 2 (test-helper-random-data (q string) 64)))
-                    (and (random-boolean) (pair 3 (test-helper-random-data (q float) 8)))
-                    (and (random-boolean) (pair 4 (test-helper-random-data (q string) 255))))))
-              (if (null? a) (list (pair 1 (test-helper-random-data (q uint) 1))) a)))))
+                  (list (and (random-boolean) (pair 0 (test-helper-field-data (q int) 8)))
+                    (and (random-boolean) (pair 1 (test-helper-field-data (q uint) 1)))
+                    (and (random-boolean) (pair 4 (test-helper-field-data (q string) 255)))
+                    (and (random-boolean) (pair 3 (test-helper-field-data (q float) 8)))
+                    (and (random-boolean) (pair 2 (test-helper-field-data (q binary) 32))))))
+              (if (null? a) (list (pair 1 (test-helper-field-data (q uint) 1))) a)))))
       (apply c
         (db-txn-call-write env
-          (l (txn) (list values (map (l (a) (db-record-create txn type-1 a)) values)))))))
+          (l (txn)
+            (let (ids (map (l (a) (db-record-create txn type-1 a)) values)) (list values ids)))))))
+
+  (define (test-helper-relations-create-1 env c)
+    (let ((left (list 1 2 3)) (right (list 1 2)) (label (list 7 8)))
+      (apply c
+        (db-txn-call-write env
+          (l (txn) (and (db-relation-ensure txn left right label) (list left right label)))))))
 
   (define (test-helper-delete-database-files)
     (each delete-file-if-exists

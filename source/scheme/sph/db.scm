@@ -14,7 +14,9 @@
     db-index-get
     db-index-rebuild
     db-open
+    db-record->vector
     db-record-create
+    db-record-get
     db-record-read
     db-record-ref
     db-record-select

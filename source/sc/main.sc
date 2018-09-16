@@ -2,7 +2,11 @@
   "sph-db-guile registers scheme procedures that when called execute specific c-functions that manage calls to sph-db")
 
 (pre-include
-  "libguile.h" "sph-db.h" "sph-db-extra.h" "./foreign/sph/one.c" "./foreign/sph/guile.c" "./helper.c")
+  "libguile.h"
+  "sph-db.h"
+  "sph-db-extra.h"
+  "./foreign/sph/one.c"
+  "./foreign/sph/guile.c" "./foreign/sph/memreg.c" "./foreign/sph/memreg-heap.c" "./helper.c")
 
 (define (scm-db-txn-active? a) (SCM SCM) (return (scm-from-bool (scm->db-txn a))))
 (define (scm-db-env-open? a) (SCM SCM) (return (scm-from-bool (: (scm->db-env a) is-open))))
@@ -280,34 +284,22 @@
 (define (scm-db-record-create scm-txn scm-type scm-values) (SCM SCM SCM SCM)
   status-declare
   (db-record-values-declare values)
+  (memreg-heap-declare allocations)
   (declare
-    field-data void*
-    field-data-size size-t
-    field-data-needs-free boolean
     scm-value SCM
-    field-offset db-fields-len-t
     result-id db-id-t
     type db-type-t*)
-  (set type (scm->db-type scm-type))
   (scm-dynwind-begin 0)
-  (status-require (db-record-values-new type &values))
-  (scm-dynwind-unwind-handler
-    (convert-type db-record-values-free (function-pointer void void*)) &values SCM-F-WIND-EXPLICITLY)
-  (sc-comment "set field values")
-  (while (not (scm-is-null scm-values))
-    (set scm-value (scm-first scm-values))
-    (status-require (scm->field-offset (scm-first scm-value) type &field-offset))
-    (status-require
-      (scm->field-data
-        (scm-tail scm-value)
-        (: (+ field-offset type:fields) type) &field-data &field-data-size &field-data-needs-free))
-    (if field-data-needs-free (scm-dynwind-free field-data))
-    (db-record-values-set &values field-offset field-data field-data-size)
-    (set scm-values (scm-tail scm-values)))
-  (sc-comment "save")
-  (status-require (db-record-create (pointer-get (scm->db-txn scm-txn)) values &result-id))
+  (set type (scm->db-type scm-type))
+  (debug-log "%d" 4)
+  (status-require (scm-c->db-record-values type scm-values &values &allocations))
+  (debug-log "%d" 5)
+  (scm-dynwind-unwind-handler db-guile-memreg-heap-free &allocations SCM-F-WIND-EXPLICITLY)
+  ;(status-require (db-record-create (pointer-get (scm->db-txn scm-txn)) values &result-id))
   (label exit
+    (debug-log "%d" 6)
     (scm-dynwind-end)
+    (debug-log "%d" 7)
     (scm-from-status-return (scm-from-uintmax result-id))))
 
 (define
@@ -390,27 +382,31 @@
     scm-ordinal-min SCM
     scm-selection SCM
     selection db-guile-relation-selection-t*)
+  (memreg-init 5)
   (if (or (scm-is-null scm-left) (scm-is-null scm-right) (scm-is-null scm-label))
     (return (scm-from-db-selection 0)))
-  (sc-comment "dont call dynwind-begin sooner or dynwind-end might not be called")
+  (set selection 0)
   (scm-dynwind-begin 0)
   (sc-comment "left/right/label")
   (if (scm-is-pair scm-left)
     (begin
       (status-require (scm->db-ids scm-left &left))
       (scm-dynwind-unwind-handler free left.start 0)
+      (memreg-add left.start)
       (set left-pointer &left))
     (set left-pointer 0))
   (if (scm-is-pair scm-right)
     (begin
       (status-require (scm->db-ids scm-right &right))
       (scm-dynwind-unwind-handler free right.start 0)
+      (memreg-add right.start)
       (set right-pointer &right))
     (set right-pointer 0))
   (if (scm-is-pair scm-right)
     (begin
       (status-require (scm->db-ids scm-label &label))
-      (scm-dynwind-unwind-handler free right.start 0)
+      (scm-dynwind-unwind-handler free label.start 0)
+      (memreg-add label.start)
       (set label-pointer &label))
     (set label-pointer 0))
   (sc-comment "ordinal")
@@ -444,6 +440,7 @@
   (sc-comment "db-relation-select")
   (status-require (db-helper-malloc (sizeof db-guile-relation-selection-t) &selection))
   (scm-dynwind-unwind-handler free selection 0)
+  (memreg-add selection)
   (status-require-read
     (db-relation-select
       (pointer-get (scm->db-txn scm-txn))
@@ -455,8 +452,10 @@
     selection:scm-from-relations scm-from-relations
     selection:status-id status.id
     scm-selection (scm-from-db-selection selection))
+  db-status-success-if-notfound
   (db-guile-selection-register selection db-guile-selection-type-relation)
   (label exit
+    (if status-is-failure memreg-free)
     (scm-dynwind-end)
     (scm-from-status-return scm-selection)))
 
@@ -580,39 +579,21 @@
   status-declare
   (db-record-values-declare values)
   (declare
-    field-data-size size-t
-    scm-value SCM
-    field-data-needs-free boolean
-    field-offset db-fields-len-t
-    field-data void*
-    type db-type-t*)
+    type db-type-t*
+    allocations memreg-register-t)
   (set type (scm->db-type scm-type))
   (scm-dynwind-begin 0)
-  (sc-comment "convert values")
-  (status-require (db-record-values-new type &values))
-  (scm-dynwind-unwind-handler
-    (convert-type db-record-values-free (function-pointer void void*)) &values SCM-F-WIND-EXPLICITLY)
-  (while (not (scm-is-null scm-values))
-    (set scm-value (scm-first scm-values))
-    (status-require (scm->field-offset (scm-first scm-value) type &field-offset))
-    (status-require
-      (scm->field-data
-        (scm-tail scm-value)
-        (: (+ field-offset type:fields) type) &field-data &field-data-size &field-data-needs-free))
-    (if field-data-needs-free (scm-dynwind-free field-data))
-    (db-record-values-set &values field-offset field-data field-data-size)
-    (set scm-values (scm-tail scm-values)))
-  (sc-comment "record-update")
+  (debug-log "%d" 4)
+  (status-require (scm-c->db-record-values type scm-values &values &allocations))
+  (debug-log "%d" 5)
+  #;(debug-log
+    "value %d %lu" (convert-type values.data:data int64-t*) (convert-type values.data:data uint8-t*))
+  (scm-dynwind-unwind-handler db-guile-memreg-heap-free &allocations SCM-F-WIND-EXPLICITLY)
   (status-require
     (db-record-update (pointer-get (scm->db-txn scm-txn)) (scm->uintmax scm-id) values))
   (label exit
     (scm-dynwind-end)
     (scm-from-status-return SCM-UNSPECIFIED)))
-
-(define (scm-db-index-select scm-txn scm-count) (SCM SCM SCM))
-(define (scm-db-index-read scm-txn) (SCM SCM))
-(define (scm-db-record-index-select scm-txn) (SCM SCM))
-(define (scm-db-record-index-read scm-txn scm-count) (SCM SCM SCM))
 
 (define (scm-db-record-virtual scm-type scm-data) (SCM SCM SCM)
   status-declare
@@ -654,6 +635,22 @@
     result (scm-from-field-data data size type:fields:type))
   (label exit
     (scm-from-status-return result)))
+
+#;(define (scm-db-index-select scm-txn scm-index scm-values) (SCM SCM SCM SCM)
+  status-declare
+  (declare selection db-guile-index-selection-t*)
+  (scm-dynwind-begin 0)
+  (status-require (db-helper-malloc (sizeof db-guile-index-selection-t) &selection))
+  (scm-dynwind-unwind-handler free selection 0)
+  (status-require
+    (db-index-select
+      (pointer-get (scm->db-txn scm-txn)) (scm->db-index scm-index) scm-values &selection:selection))
+  (label exit
+    (scm-from-status-return SCM-UNSPECIFIED)))
+
+(define (scm-db-index-read scm-txn) (SCM SCM))
+(define (scm-db-record-index-select scm-txn) (SCM SCM))
+(define (scm-db-record-index-read scm-txn scm-count) (SCM SCM SCM))
 
 (define (db-guile-init) void
   "prepare scm values and register guile bindings"

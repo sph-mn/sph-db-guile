@@ -133,10 +133,35 @@
     (let* ((id-element 123) (id-type 6500) (id (db-id-add-type id-element id-type)))
       (and (= id-element (db-id-element id)) (= id-type (db-id-type id)))))
 
-  (define-procedure-tests tests (db-record-virtual)
-    (db-other) (db-relation-ensure)
-    (db-record-select) (db-relation-select)
-    (db-record-create) (db-type) (db-index) (db-env) (db-txn) (db-statistics))
+  (define-test (db-record-update env)
+    (apply
+      (l (type id old new)
+        (db-txn-call-write env
+          (l (txn)
+            (db-record-update txn type id new)
+            (let
+              (read (db-record->values type (first (db-record-get txn (list id)))))
+              (debug-log (q result) read)
+              )
+            #t)))
+      (test-helper-type-create-1 env
+        (l (type-name type-1-fields type-1)
+          (let
+            ( (values-old (list-q (0 . -123) (1 . 123)
+                  ;(4 . "123") (3 . 1.23)
+                  ))
+              (values-new (list-q (0 . 1) (1 . 2)
+                  ;(4 . "3") (3 . 4.5)
+                  )))
+            (db-txn-call-write env
+              (l (txn) (list type-1 (db-record-create txn type-1 values-old) values-old values-new))))))))
+
+  (define-procedure-tests tests (db-record-update)
+    ;(db-record-virtual)
+    ;(db-other) (db-relation-ensure)
+    ;(db-relation-select) (db-record-select)
+    ;(db-record-create) (db-type) (db-index) (db-env) (db-txn) (db-statistics)
+    )
 
   ;record-update
   ;record-delete

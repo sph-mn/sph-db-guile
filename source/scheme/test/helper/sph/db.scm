@@ -36,8 +36,13 @@
     (let*
       ( (name "type-1")
         (fields
-          (list-q ("field-1" . int64f) ("field-2" . uint8f)
-            ("field-4" . binary256f) ("field-5" . float64f) ("field-3" . string8)))
+          (list-q
+            ("field-1" . int64f)
+            ("field-2" . uint8f)
+            ("field-4" . binary256f)
+            ("field-5" . float64f)
+            ("field-3" . string8)
+            ))
         (type (db-type-create env name fields)))
       (c name fields type)))
 

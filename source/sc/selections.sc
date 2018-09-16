@@ -30,7 +30,17 @@
       (label db-ids-t)
       (status-id status-id-t)
       (scm-from-relations (function-pointer SCM db-relations-t))
-      (selection db-relation-selection-t))))
+      (selection db-relation-selection-t)))
+  db-guile-index-selection-t
+  (type
+    (struct
+      (status-id status-id-t)
+      (selection db-index-selection-t)))
+  db-guile-record-index-selection-t
+  (type
+    (struct
+      (status-id status-id-t)
+      (selection db-record-index-selection-t))))
 
 (pre-include "./foreign/sph/mi-list.c")
 (define db-guile-active-selections (__thread db-guile-selections-t*) 0)

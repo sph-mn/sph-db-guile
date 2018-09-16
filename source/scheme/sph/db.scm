@@ -14,6 +14,7 @@
     db-index-get
     db-index-rebuild
     db-open
+    db-record->values
     db-record->vector
     db-record-create
     db-record-get
@@ -60,6 +61,7 @@
     (sph)
     (sph exception)
     (sph record)
+    (sph vector)
     (only (guile)
       syntax
       datum->syntax
@@ -103,4 +105,7 @@
      the transaction is aborted when an unhandled exception occurs"
     (let (txn (db-txn-write-begin env))
       (exception-intercept-if (c txn) (db-txn-abort txn)
-        (if (db-txn-active? txn) (db-txn-commit txn))))))
+        (if (db-txn-active? txn) (db-txn-commit txn)))))
+
+  (define (db-record->values type a) "db-type db-record -> list:((field-offset . value) ...)"
+    (vector-map-with-index (l (index a) (and a (pair index a))) (db-record->vector type a))))

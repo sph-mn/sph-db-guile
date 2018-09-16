@@ -341,95 +341,39 @@
     size size-t
     data void*)
   (scm-dynwind-begin 0)
+  (set
+    data 0
+    size (db-field-type-size field-type))
   (case = field-type
-    (db-field-type-uint8f
-      (set
-        size 1
-        *result-needs-free #t)
-      (status-require (db-helper-malloc size &data))
-      (scm-dynwind-unwind-handler free data 0)
-      (set (pointer-get (convert-type data uint16-t*)) (scm->uint8 scm-a)))
-    (db-field-type-uint16f
-      (set
-        size 2
-        *result-needs-free #t)
-      (status-require (db-helper-malloc size &data))
-      (scm-dynwind-unwind-handler free data 0)
-      (set (pointer-get (convert-type data uint16-t*)) (scm->uint16 scm-a)))
-    (db-field-type-uint32f
-      (set
-        size 4
-        *result-needs-free #t)
-      (status-require (db-helper-malloc size &data))
-      (scm-dynwind-unwind-handler free data 0)
-      (set (pointer-get (convert-type data uint32-t*)) (scm->uint32 scm-a)))
-    (db-field-type-uint64f
-      (set
-        size 8
-        *result-needs-free #t)
-      (status-require (db-helper-malloc size &data))
-      (scm-dynwind-unwind-handler free data 0)
-      (set (pointer-get (convert-type data uint64-t*)) (scm->uint64 scm-a)))
-    (db-field-type-uint128f
-      (set
-        size 16
-        *result-needs-free #t
-        b (scm-uint-list->bytevector (scm-list-1 scm-a) scm-endianness-little (scm-from-size-t size)))
+    ( (db-field-type-uint128f db-field-type-uint256f db-field-type-int128f db-field-type-int256f)
+      (set b
+        (scm-sint-list->bytevector (scm-list-1 scm-a) scm-endianness-little (scm-from-size-t size)))
       (status-require (db-helper-malloc size &data))
       (scm-dynwind-unwind-handler free data 0) (memcpy data (SCM-BYTEVECTOR-CONTENTS b) size))
-    (db-field-type-uint256f
-      (set
-        size 32
-        *result-needs-free #t
-        b (scm-uint-list->bytevector (scm-list-1 scm-a) scm-endianness-little (scm-from-size-t size)))
-      (status-require (db-helper-malloc size &data))
-      (scm-dynwind-unwind-handler free data 0) (memcpy data (SCM-BYTEVECTOR-CONTENTS b) size))
-    (db-field-type-int8f
-      (set
-        size 1
-        *result-needs-free #t)
+    ( (db-field-type-uint8f
+        db-field-type-uint16f
+        db-field-type-uint32f
+        db-field-type-uint64f
+        db-field-type-int8f db-field-type-int16f db-field-type-int32f db-field-type-int64f)
       (status-require (db-helper-malloc size &data))
       (scm-dynwind-unwind-handler free data 0)
-      (set (pointer-get (convert-type data int8-t*)) (scm->int8 scm-a)))
-    (db-field-type-int16f
-      (set
-        size 2
-        *result-needs-free #t)
-      (status-require (db-helper-malloc size &data))
-      (scm-dynwind-unwind-handler free data 0)
-      (set (pointer-get (convert-type data int16-t*)) (scm->int16 scm-a)))
-    (db-field-type-int32f
-      (set
-        size 4
-        *result-needs-free #t)
-      (status-require (db-helper-malloc size &data))
-      (scm-dynwind-unwind-handler free data 0)
-      (set (pointer-get (convert-type data int32-t*)) (scm->int32 scm-a)))
-    (db-field-type-int64f
-      (set
-        size 8
-        *result-needs-free #t)
-      (status-require (db-helper-malloc size &data))
-      (scm-dynwind-unwind-handler free data 0)
-      (set (pointer-get (convert-type data int64-t*)) (scm->int64 scm-a)))
-    (db-field-type-int128f
-      (set
-        size 16
-        *result-needs-free #t
-        b (scm-sint-list->bytevector (scm-list-1 scm-a) scm-endianness-little (scm-from-size-t size)))
-      (status-require (db-helper-malloc size &data))
-      (scm-dynwind-unwind-handler free data 0) (memcpy data (SCM-BYTEVECTOR-CONTENTS b) size))
-    (db-field-type-int256f
-      (set
-        size 32
-        *result-needs-free #t
-        b (scm-sint-list->bytevector (scm-list-1 scm-a) scm-endianness-little (scm-from-size-t size)))
-      (status-require (db-helper-malloc size &data))
-      (scm-dynwind-unwind-handler free data 0) (memcpy data (SCM-BYTEVECTOR-CONTENTS b) size))
+      (case = field-type
+        (db-field-type-uint8f (set (pointer-get (convert-type data uint16-t*)) (scm->uint8 scm-a)))
+        (db-field-type-uint16f
+          (set (pointer-get (convert-type data uint16-t*)) (scm->uint16 scm-a)))
+        (db-field-type-uint32f
+          (set (pointer-get (convert-type data uint32-t*)) (scm->uint32 scm-a)))
+        (db-field-type-uint64f
+          (set (pointer-get (convert-type data uint64-t*)) (scm->uint64 scm-a)))
+        (db-field-type-int8f (set (pointer-get (convert-type data int8-t*)) (scm->int8 scm-a)))
+        (db-field-type-int16f (set (pointer-get (convert-type data int16-t*)) (scm->int16 scm-a)))
+        (db-field-type-int32f (set (pointer-get (convert-type data int32-t*)) (scm->int32 scm-a)))
+        (db-field-type-int64f (set (pointer-get (convert-type data int64-t*)) (scm->int64 scm-a)))))
     (else (status-set-both-goto status-group-db-guile status-id-field-value-invalid)))
   (set
     *result-data data
-    *result-size size)
+    *result-size size
+    *result-needs-free #t)
   (label exit
     (scm-dynwind-end)
     (return status)))
@@ -437,58 +381,43 @@
 (define (scm->field-data-string scm-a field-type result-data result-size result-needs-free)
   (status-t SCM db-field-type-t void** size-t* boolean*)
   status-declare
-  (declare
-    size size-t
-    data void*)
-  (set size (scm-c-string-utf8-length scm-a))
   (case = field-type
-    ( (db-field-type-string8 db-field-type-string16 db-field-type-string32 db-field-type-string64)
+    ( (db-field-type-string8
+        db-field-type-string16
+        db-field-type-string32
+        db-field-type-string64
+        db-field-type-string8f
+        db-field-type-string16f
+        db-field-type-string32f
+        db-field-type-string64f db-field-type-string128f db-field-type-string256f)
       #t)
-    (db-field-type-string8f
-      (if (< 1 size) (status-set-both-goto status-group-db-guile status-id-field-value-invalid)))
-    (db-field-type-string16f
-      (if (< 2 size) (status-set-both-goto status-group-db-guile status-id-field-value-invalid)))
-    (db-field-type-string32f
-      (if (< 4 size) (status-set-both-goto status-group-db-guile status-id-field-value-invalid)))
-    (db-field-type-string64f
-      (if (< 8 size) (status-set-both-goto status-group-db-guile status-id-field-value-invalid)))
-    (db-field-type-string128f
-      (if (< 16 size) (status-set-both-goto status-group-db-guile status-id-field-value-invalid)))
-    (db-field-type-string256f
-      (if (< 32 size) (status-set-both-goto status-group-db-guile status-id-field-value-invalid)))
     (else (status-set-both-goto status-group-db-guile status-id-field-value-invalid)))
   (set
-    *result-needs-free #f
+    *result-needs-free #t
     *result-data (scm->utf8-stringn scm-a 0)
-    *result-size size)
+    *result-size (scm-c-string-utf8-length scm-a))
   (label exit
     (return status)))
 
 (define (scm->field-data-bytevector scm-a field-type result-data result-size result-needs-free)
   (status-t SCM db-field-type-t void** size-t* boolean*)
   status-declare
-  (declare size size-t)
-  (set size (SCM-BYTEVECTOR-LENGTH scm-a))
-  (case = field-type
-    ( (db-field-type-binary8 db-field-type-binary16 db-field-type-binary32 db-field-type-binary64)
-      #t)
-    (db-field-type-binary8f
-      (if (< 1 size) (status-set-both-goto status-group-db-guile status-id-field-value-invalid)))
-    (db-field-type-binary16f
-      (if (< 2 size) (status-set-both-goto status-group-db-guile status-id-field-value-invalid)))
-    (db-field-type-binary32f
-      (if (< 4 size) (status-set-both-goto status-group-db-guile status-id-field-value-invalid)))
-    (db-field-type-binary64f
-      (if (< 8 size) (status-set-both-goto status-group-db-guile status-id-field-value-invalid)))
-    (db-field-type-binary128f
-      (if (< 16 size) (status-set-both-goto status-group-db-guile status-id-field-value-invalid)))
-    (db-field-type-binary256f
-      (if (< 32 size) (status-set-both-goto status-group-db-guile status-id-field-value-invalid)))
-    (else (status-set-both-goto status-group-db-guile status-id-field-value-invalid)))
+  (if
+    (not
+      (or
+        db-field-type-binary8
+        db-field-type-binary16
+        db-field-type-binary32
+        db-field-type-binary64
+        db-field-type-binary8f
+        db-field-type-binary16f
+        db-field-type-binary32f
+        db-field-type-binary64f db-field-type-binary128f db-field-type-binary256f))
+    (status-set-both-goto status-group-db-guile status-id-field-value-invalid))
   (set
     *result-needs-free #f
     *result-data (SCM-BYTEVECTOR-CONTENTS scm-a)
-    *result-size size)
+    *result-size (SCM-BYTEVECTOR-LENGTH scm-a))
   (label exit
     (return status)))
 
@@ -616,5 +545,45 @@
       scm-matcher (scm-from-db-type type) (scm-from-db-record &record) (scm-tail scm-state))
     (pointer-get (convert-type state SCM*)) (scm-cons scm-matcher (scm-tail scm-result)))
   (return (scm->bool (scm-first scm-result))))
+
+(define (db-guile-memreg-heap-free a) (void void*)
+  "\"free\" compatible memreg-heap-free for use in scm-dynwind-unwind-handler"
+  (memreg-heap-free (pointer-get (convert-type a memreg-register-t*))))
+
+(define (scm-c->db-record-values type scm-values result-values result-allocations)
+  (status-t db-type-t* SCM db-record-values-t* memreg-register-t*)
+  status-declare
+  (db-record-values-declare values)
+  (memreg-heap-declare allocations)
+  (declare
+    scm-value SCM
+    field-offset db-fields-len-t
+    field-data-needs-free boolean
+    field-data void*
+    field-data-size size-t)
+  (if (memreg-heap-allocate (scm->size-t (scm-length scm-values)) &allocations)
+    (begin
+      (status-set-both status-group-db-guile db-status-id-memory)
+      (return status)))
+  (scm-dynwind-begin 0)
+  (scm-dynwind-unwind-handler db-guile-memreg-heap-free &allocations 0)
+  (status-require (db-record-values-new type &values))
+  (memreg-heap-add allocations values.data)
+  (while (not (scm-is-null scm-values))
+    (set scm-value (scm-first scm-values))
+    (status-require (scm->field-offset (scm-first scm-value) type &field-offset))
+    (status-require
+      (scm->field-data
+        (scm-tail scm-value)
+        (: (+ field-offset type:fields) type) &field-data &field-data-size &field-data-needs-free))
+    (if field-data-needs-free (memreg-heap-add allocations field-data))
+    (db-record-values-set &values field-offset field-data field-data-size)
+    (set scm-values (scm-tail scm-values)))
+  (set *result-values values)
+  (label exit
+    (if status-is-failure (memreg-heap-free allocations)
+      (set *result-allocations allocations))
+    (scm-dynwind-end)
+    (return status)))
 
 (pre-include "./selections.c")

@@ -26,6 +26,14 @@ typedef struct {
   SCM (*scm_from_relations)(db_relations_t);
   db_relation_selection_t selection;
 } db_guile_relation_selection_t;
+typedef struct {
+  status_id_t status_id;
+  db_index_selection_t selection;
+} db_guile_index_selection_t;
+typedef struct {
+  status_id_t status_id;
+  db_record_index_selection_t selection;
+} db_guile_record_index_selection_t;
 #include "./foreign/sph/mi-list.c"
 __thread db_guile_selections_t* db_guile_active_selections = 0;
 /** finish all selections and associated temporary data of the current thread.

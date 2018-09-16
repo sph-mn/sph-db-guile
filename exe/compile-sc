@@ -18,7 +18,8 @@ copy_submodules() {
   target="$source_sc/foreign"
   mkdir -p "$source_sc/foreign/sph" &&
   cp --update --target-directory="$target" "$source/sph.sc" &&
-  cp --update --target-directory="$target/sph" "$source/sph/guile.sc" "$source/sph/mi-list.sc" "$source/sph/one.sc"
+  cp --update --target-directory="$target/sph" "$source/sph/guile.sc" "$source/sph/mi-list.sc" \
+     "$source/sph/one.sc" "$source/sph/memreg.sc" "$source/sph/memreg-heap.sc"
 }
 
 compile_sc() {

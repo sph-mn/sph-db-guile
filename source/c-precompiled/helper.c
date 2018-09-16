@@ -446,91 +446,50 @@ status_t scm_to_field_data_integer(SCM scm_a,
   size_t size;
   void* data;
   scm_dynwind_begin(0);
-  if (db_field_type_uint8f == field_type) {
-    size = 1;
-    *result_needs_free = 1;
-    status_require((db_helper_malloc(size, (&data))));
-    scm_dynwind_unwind_handler(free, data, 0);
-    *((uint16_t*)(data)) = scm_to_uint8(scm_a);
-  } else if (db_field_type_uint16f == field_type) {
-    size = 2;
-    *result_needs_free = 1;
-    status_require((db_helper_malloc(size, (&data))));
-    scm_dynwind_unwind_handler(free, data, 0);
-    *((uint16_t*)(data)) = scm_to_uint16(scm_a);
-  } else if (db_field_type_uint32f == field_type) {
-    size = 4;
-    *result_needs_free = 1;
-    status_require((db_helper_malloc(size, (&data))));
-    scm_dynwind_unwind_handler(free, data, 0);
-    *((uint32_t*)(data)) = scm_to_uint32(scm_a);
-  } else if (db_field_type_uint64f == field_type) {
-    size = 8;
-    *result_needs_free = 1;
-    status_require((db_helper_malloc(size, (&data))));
-    scm_dynwind_unwind_handler(free, data, 0);
-    *((uint64_t*)(data)) = scm_to_uint64(scm_a);
-  } else if (db_field_type_uint128f == field_type) {
-    size = 16;
-    *result_needs_free = 1;
-    b = scm_uint_list_to_bytevector(
-      (scm_list_1(scm_a)), scm_endianness_little, (scm_from_size_t(size)));
-    status_require((db_helper_malloc(size, (&data))));
-    scm_dynwind_unwind_handler(free, data, 0);
-    memcpy(data, (SCM_BYTEVECTOR_CONTENTS(b)), size);
-  } else if (db_field_type_uint256f == field_type) {
-    size = 32;
-    *result_needs_free = 1;
-    b = scm_uint_list_to_bytevector(
-      (scm_list_1(scm_a)), scm_endianness_little, (scm_from_size_t(size)));
-    status_require((db_helper_malloc(size, (&data))));
-    scm_dynwind_unwind_handler(free, data, 0);
-    memcpy(data, (SCM_BYTEVECTOR_CONTENTS(b)), size);
-  } else if (db_field_type_int8f == field_type) {
-    size = 1;
-    *result_needs_free = 1;
-    status_require((db_helper_malloc(size, (&data))));
-    scm_dynwind_unwind_handler(free, data, 0);
-    *((int8_t*)(data)) = scm_to_int8(scm_a);
-  } else if (db_field_type_int16f == field_type) {
-    size = 2;
-    *result_needs_free = 1;
-    status_require((db_helper_malloc(size, (&data))));
-    scm_dynwind_unwind_handler(free, data, 0);
-    *((int16_t*)(data)) = scm_to_int16(scm_a);
-  } else if (db_field_type_int32f == field_type) {
-    size = 4;
-    *result_needs_free = 1;
-    status_require((db_helper_malloc(size, (&data))));
-    scm_dynwind_unwind_handler(free, data, 0);
-    *((int32_t*)(data)) = scm_to_int32(scm_a);
-  } else if (db_field_type_int64f == field_type) {
-    size = 8;
-    *result_needs_free = 1;
-    status_require((db_helper_malloc(size, (&data))));
-    scm_dynwind_unwind_handler(free, data, 0);
-    *((int64_t*)(data)) = scm_to_int64(scm_a);
-  } else if (db_field_type_int128f == field_type) {
-    size = 16;
-    *result_needs_free = 1;
+  data = 0;
+  size = db_field_type_size(field_type);
+  if ((db_field_type_uint128f == field_type) ||
+    (db_field_type_uint256f == field_type) ||
+    (db_field_type_int128f == field_type) ||
+    (db_field_type_int256f == field_type)) {
     b = scm_sint_list_to_bytevector(
       (scm_list_1(scm_a)), scm_endianness_little, (scm_from_size_t(size)));
     status_require((db_helper_malloc(size, (&data))));
     scm_dynwind_unwind_handler(free, data, 0);
     memcpy(data, (SCM_BYTEVECTOR_CONTENTS(b)), size);
-  } else if (db_field_type_int256f == field_type) {
-    size = 32;
-    *result_needs_free = 1;
-    b = scm_sint_list_to_bytevector(
-      (scm_list_1(scm_a)), scm_endianness_little, (scm_from_size_t(size)));
+  } else if ((db_field_type_uint8f == field_type) ||
+    (db_field_type_uint16f == field_type) ||
+    (db_field_type_uint32f == field_type) ||
+    (db_field_type_uint64f == field_type) ||
+    (db_field_type_int8f == field_type) ||
+    (db_field_type_int16f == field_type) ||
+    (db_field_type_int32f == field_type) ||
+    (db_field_type_int64f == field_type)) {
     status_require((db_helper_malloc(size, (&data))));
     scm_dynwind_unwind_handler(free, data, 0);
-    memcpy(data, (SCM_BYTEVECTOR_CONTENTS(b)), size);
+    if (db_field_type_uint8f == field_type) {
+      *((uint16_t*)(data)) = scm_to_uint8(scm_a);
+    } else if (db_field_type_uint16f == field_type) {
+      *((uint16_t*)(data)) = scm_to_uint16(scm_a);
+    } else if (db_field_type_uint32f == field_type) {
+      *((uint32_t*)(data)) = scm_to_uint32(scm_a);
+    } else if (db_field_type_uint64f == field_type) {
+      *((uint64_t*)(data)) = scm_to_uint64(scm_a);
+    } else if (db_field_type_int8f == field_type) {
+      *((int8_t*)(data)) = scm_to_int8(scm_a);
+    } else if (db_field_type_int16f == field_type) {
+      *((int16_t*)(data)) = scm_to_int16(scm_a);
+    } else if (db_field_type_int32f == field_type) {
+      *((int32_t*)(data)) = scm_to_int32(scm_a);
+    } else if (db_field_type_int64f == field_type) {
+      *((int64_t*)(data)) = scm_to_int64(scm_a);
+    };
   } else {
     status_set_both_goto(status_group_db_guile, status_id_field_value_invalid);
   };
   *result_data = data;
   *result_size = size;
+  *result_needs_free = 1;
 exit:
   scm_dynwind_end();
   return (status);
@@ -541,50 +500,23 @@ status_t scm_to_field_data_string(SCM scm_a,
   size_t* result_size,
   boolean* result_needs_free) {
   status_declare;
-  size_t size;
-  void* data;
-  size = scm_c_string_utf8_length(scm_a);
   if ((db_field_type_string8 == field_type) ||
     (db_field_type_string16 == field_type) ||
     (db_field_type_string32 == field_type) ||
-    (db_field_type_string64 == field_type)) {
+    (db_field_type_string64 == field_type) ||
+    (db_field_type_string8f == field_type) ||
+    (db_field_type_string16f == field_type) ||
+    (db_field_type_string32f == field_type) ||
+    (db_field_type_string64f == field_type) ||
+    (db_field_type_string128f == field_type) ||
+    (db_field_type_string256f == field_type)) {
     1;
-  } else if (db_field_type_string8f == field_type) {
-    if (1 < size) {
-      status_set_both_goto(
-        status_group_db_guile, status_id_field_value_invalid);
-    };
-  } else if (db_field_type_string16f == field_type) {
-    if (2 < size) {
-      status_set_both_goto(
-        status_group_db_guile, status_id_field_value_invalid);
-    };
-  } else if (db_field_type_string32f == field_type) {
-    if (4 < size) {
-      status_set_both_goto(
-        status_group_db_guile, status_id_field_value_invalid);
-    };
-  } else if (db_field_type_string64f == field_type) {
-    if (8 < size) {
-      status_set_both_goto(
-        status_group_db_guile, status_id_field_value_invalid);
-    };
-  } else if (db_field_type_string128f == field_type) {
-    if (16 < size) {
-      status_set_both_goto(
-        status_group_db_guile, status_id_field_value_invalid);
-    };
-  } else if (db_field_type_string256f == field_type) {
-    if (32 < size) {
-      status_set_both_goto(
-        status_group_db_guile, status_id_field_value_invalid);
-    };
   } else {
     status_set_both_goto(status_group_db_guile, status_id_field_value_invalid);
   };
-  *result_needs_free = 0;
+  *result_needs_free = 1;
   *result_data = scm_to_utf8_stringn(scm_a, 0);
-  *result_size = size;
+  *result_size = scm_c_string_utf8_length(scm_a);
 exit:
   return (status);
 };
@@ -594,49 +526,16 @@ status_t scm_to_field_data_bytevector(SCM scm_a,
   size_t* result_size,
   boolean* result_needs_free) {
   status_declare;
-  size_t size;
-  size = SCM_BYTEVECTOR_LENGTH(scm_a);
-  if ((db_field_type_binary8 == field_type) ||
-    (db_field_type_binary16 == field_type) ||
-    (db_field_type_binary32 == field_type) ||
-    (db_field_type_binary64 == field_type)) {
-    1;
-  } else if (db_field_type_binary8f == field_type) {
-    if (1 < size) {
-      status_set_both_goto(
-        status_group_db_guile, status_id_field_value_invalid);
-    };
-  } else if (db_field_type_binary16f == field_type) {
-    if (2 < size) {
-      status_set_both_goto(
-        status_group_db_guile, status_id_field_value_invalid);
-    };
-  } else if (db_field_type_binary32f == field_type) {
-    if (4 < size) {
-      status_set_both_goto(
-        status_group_db_guile, status_id_field_value_invalid);
-    };
-  } else if (db_field_type_binary64f == field_type) {
-    if (8 < size) {
-      status_set_both_goto(
-        status_group_db_guile, status_id_field_value_invalid);
-    };
-  } else if (db_field_type_binary128f == field_type) {
-    if (16 < size) {
-      status_set_both_goto(
-        status_group_db_guile, status_id_field_value_invalid);
-    };
-  } else if (db_field_type_binary256f == field_type) {
-    if (32 < size) {
-      status_set_both_goto(
-        status_group_db_guile, status_id_field_value_invalid);
-    };
-  } else {
+  if (!(db_field_type_binary8 || db_field_type_binary16 ||
+        db_field_type_binary32 || db_field_type_binary64 ||
+        db_field_type_binary8f || db_field_type_binary16f ||
+        db_field_type_binary32f || db_field_type_binary64f ||
+        db_field_type_binary128f || db_field_type_binary256f)) {
     status_set_both_goto(status_group_db_guile, status_id_field_value_invalid);
   };
   *result_needs_free = 0;
   *result_data = SCM_BYTEVECTOR_CONTENTS(scm_a);
-  *result_size = size;
+  *result_size = SCM_BYTEVECTOR_LENGTH(scm_a);
 exit:
   return (status);
 };
@@ -769,5 +668,55 @@ db_guile_record_matcher(db_type_t* type, db_record_t record, void* state) {
     (scm_tail(scm_state)));
   *((SCM*)(state)) = scm_cons(scm_matcher, (scm_tail(scm_result)));
   return ((scm_to_bool((scm_first(scm_result)))));
+};
+/** "free" compatible memreg-heap-free for use in scm-dynwind-unwind-handler */
+void db_guile_memreg_heap_free(void* a) {
+  memreg_heap_free((*((memreg_register_t*)(a))));
+};
+status_t scm_c_to_db_record_values(db_type_t* type,
+  SCM scm_values,
+  db_record_values_t* result_values,
+  memreg_register_t* result_allocations) {
+  status_declare;
+  db_record_values_declare(values);
+  memreg_heap_declare(allocations);
+  SCM scm_value;
+  db_fields_len_t field_offset;
+  boolean field_data_needs_free;
+  void* field_data;
+  size_t field_data_size;
+  if (memreg_heap_allocate(
+        (scm_to_size_t((scm_length(scm_values)))), (&allocations))) {
+    status_set_both(status_group_db_guile, db_status_id_memory);
+    return (status);
+  };
+  scm_dynwind_begin(0);
+  scm_dynwind_unwind_handler(db_guile_memreg_heap_free, (&allocations), 0);
+  status_require((db_record_values_new(type, (&values))));
+  memreg_heap_add(allocations, (values.data));
+  while (!scm_is_null(scm_values)) {
+    scm_value = scm_first(scm_values);
+    status_require(
+      (scm_to_field_offset((scm_first(scm_value)), type, (&field_offset))));
+    status_require((scm_to_field_data((scm_tail(scm_value)),
+      ((field_offset + type->fields)->type),
+      (&field_data),
+      (&field_data_size),
+      (&field_data_needs_free))));
+    if (field_data_needs_free) {
+      memreg_heap_add(allocations, field_data);
+    };
+    db_record_values_set((&values), field_offset, field_data, field_data_size);
+    scm_values = scm_tail(scm_values);
+  };
+  *result_values = values;
+exit:
+  if (status_is_failure) {
+    memreg_heap_free(allocations);
+  } else {
+    *result_allocations = allocations;
+  };
+  scm_dynwind_end();
+  return (status);
 };
 #include "./selections.c"

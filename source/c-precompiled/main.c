@@ -5,6 +5,8 @@
 #include <sph-db-extra.h>
 #include "./foreign/sph/one.c"
 #include "./foreign/sph/guile.c"
+#include "./foreign/sph/memreg.c"
+#include "./foreign/sph/memreg-heap.c"
 #include "./helper.c"
 SCM scm_db_txn_active_p(SCM a) {
   return ((scm_from_bool((scm_to_db_txn(a)))));
@@ -314,40 +316,22 @@ SCM scm_db_index_fields(SCM scm_index) {
 SCM scm_db_record_create(SCM scm_txn, SCM scm_type, SCM scm_values) {
   status_declare;
   db_record_values_declare(values);
-  void* field_data;
-  size_t field_data_size;
-  boolean field_data_needs_free;
+  memreg_heap_declare(allocations);
   SCM scm_value;
-  db_fields_len_t field_offset;
   db_id_t result_id;
   db_type_t* type;
-  type = scm_to_db_type(scm_type);
   scm_dynwind_begin(0);
-  status_require((db_record_values_new(type, (&values))));
-  scm_dynwind_unwind_handler(((void (*)(void*))(db_record_values_free)),
-    (&values),
-    SCM_F_WIND_EXPLICITLY);
-  /* set field values */
-  while (!scm_is_null(scm_values)) {
-    scm_value = scm_first(scm_values);
-    status_require(
-      (scm_to_field_offset((scm_first(scm_value)), type, (&field_offset))));
-    status_require((scm_to_field_data((scm_tail(scm_value)),
-      ((field_offset + type->fields)->type),
-      (&field_data),
-      (&field_data_size),
-      (&field_data_needs_free))));
-    if (field_data_needs_free) {
-      scm_dynwind_free(field_data);
-    };
-    db_record_values_set((&values), field_offset, field_data, field_data_size);
-    scm_values = scm_tail(scm_values);
-  };
-  /* save */
+  type = scm_to_db_type(scm_type);
+  debug_log("%d", 4);
   status_require(
-    (db_record_create((*(scm_to_db_txn(scm_txn))), values, (&result_id))));
+    (scm_c_to_db_record_values(type, scm_values, (&values), (&allocations))));
+  debug_log("%d", 5);
+  scm_dynwind_unwind_handler(
+    db_guile_memreg_heap_free, (&allocations), SCM_F_WIND_EXPLICITLY);
 exit:
+  debug_log("%d", 6);
   scm_dynwind_end();
+  debug_log("%d", 7);
   scm_from_status_return((scm_from_uintmax(result_id)));
 };
 SCM scm_db_relation_ensure(SCM scm_txn,
@@ -440,16 +424,18 @@ SCM scm_db_relation_select(SCM scm_txn,
   SCM scm_ordinal_min;
   SCM scm_selection;
   db_guile_relation_selection_t* selection;
+  memreg_init(5);
   if (scm_is_null(scm_left) || scm_is_null(scm_right) ||
     scm_is_null(scm_label)) {
     return ((scm_from_db_selection(0)));
   };
-  /* dont call dynwind-begin sooner or dynwind-end might not be called */
+  selection = 0;
   scm_dynwind_begin(0);
   /* left/right/label */
   if (scm_is_pair(scm_left)) {
     status_require((scm_to_db_ids(scm_left, (&left))));
     scm_dynwind_unwind_handler(free, (left.start), 0);
+    memreg_add((left.start));
     left_pointer = &left;
   } else {
     left_pointer = 0;
@@ -457,13 +443,15 @@ SCM scm_db_relation_select(SCM scm_txn,
   if (scm_is_pair(scm_right)) {
     status_require((scm_to_db_ids(scm_right, (&right))));
     scm_dynwind_unwind_handler(free, (right.start), 0);
+    memreg_add((right.start));
     right_pointer = &right;
   } else {
     right_pointer = 0;
   };
   if (scm_is_pair(scm_right)) {
     status_require((scm_to_db_ids(scm_label, (&label))));
-    scm_dynwind_unwind_handler(free, (right.start), 0);
+    scm_dynwind_unwind_handler(free, (label.start), 0);
+    memreg_add((label.start));
     label_pointer = &label;
   } else {
     label_pointer = 0;
@@ -504,6 +492,7 @@ SCM scm_db_relation_select(SCM scm_txn,
   status_require(
     (db_helper_malloc((sizeof(db_guile_relation_selection_t)), (&selection))));
   scm_dynwind_unwind_handler(free, selection, 0);
+  memreg_add(selection);
   status_require_read((db_relation_select((*(scm_to_db_txn(scm_txn))),
     left_pointer,
     right_pointer,
@@ -516,8 +505,12 @@ SCM scm_db_relation_select(SCM scm_txn,
   selection->scm_from_relations = scm_from_relations;
   selection->status_id = status.id;
   scm_selection = scm_from_db_selection(selection);
+  db_status_success_if_notfound;
   db_guile_selection_register(selection, db_guile_selection_type_relation);
 exit:
+  if (status_is_failure) {
+    memreg_free;
+  };
   scm_dynwind_end();
   scm_from_status_return(scm_selection);
 };
@@ -647,45 +640,22 @@ SCM scm_db_record_update(SCM scm_txn,
   SCM scm_values) {
   status_declare;
   db_record_values_declare(values);
-  size_t field_data_size;
-  SCM scm_value;
-  boolean field_data_needs_free;
-  db_fields_len_t field_offset;
-  void* field_data;
   db_type_t* type;
+  memreg_register_t allocations;
   type = scm_to_db_type(scm_type);
   scm_dynwind_begin(0);
-  /* convert values */
-  status_require((db_record_values_new(type, (&values))));
-  scm_dynwind_unwind_handler(((void (*)(void*))(db_record_values_free)),
-    (&values),
-    SCM_F_WIND_EXPLICITLY);
-  while (!scm_is_null(scm_values)) {
-    scm_value = scm_first(scm_values);
-    status_require(
-      (scm_to_field_offset((scm_first(scm_value)), type, (&field_offset))));
-    status_require((scm_to_field_data((scm_tail(scm_value)),
-      ((field_offset + type->fields)->type),
-      (&field_data),
-      (&field_data_size),
-      (&field_data_needs_free))));
-    if (field_data_needs_free) {
-      scm_dynwind_free(field_data);
-    };
-    db_record_values_set((&values), field_offset, field_data, field_data_size);
-    scm_values = scm_tail(scm_values);
-  };
-  /* record-update */
+  debug_log("%d", 4);
+  status_require(
+    (scm_c_to_db_record_values(type, scm_values, (&values), (&allocations))));
+  debug_log("%d", 5);
+  scm_dynwind_unwind_handler(
+    db_guile_memreg_heap_free, (&allocations), SCM_F_WIND_EXPLICITLY);
   status_require((db_record_update(
     (*(scm_to_db_txn(scm_txn))), (scm_to_uintmax(scm_id)), values)));
 exit:
   scm_dynwind_end();
   scm_from_status_return(SCM_UNSPECIFIED);
 };
-SCM scm_db_index_select(SCM scm_txn, SCM scm_count);
-SCM scm_db_index_read(SCM scm_txn);
-SCM scm_db_record_index_select(SCM scm_txn);
-SCM scm_db_record_index_read(SCM scm_txn, SCM scm_count);
 SCM scm_db_record_virtual(SCM scm_type, SCM scm_data) {
   status_declare;
   void* field_data;
@@ -727,6 +697,9 @@ SCM scm_db_record_virtual_data(SCM scm_type, SCM scm_id) {
 exit:
   scm_from_status_return(result);
 };
+SCM scm_db_index_read(SCM scm_txn);
+SCM scm_db_record_index_select(SCM scm_txn);
+SCM scm_db_record_index_read(SCM scm_txn, SCM scm_count);
 /** prepare scm values and register guile bindings */
 void db_guile_init() {
   SCM type_slots;

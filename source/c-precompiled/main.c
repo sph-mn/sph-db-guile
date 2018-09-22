@@ -635,6 +635,8 @@ SCM scm_db_record_update(SCM scm_txn,
   memreg_register_t allocations;
   scm_dynwind_begin(0);
   type = scm_to_db_type(scm_type);
+  status_require(
+    (scm_c_to_db_record_values(type, scm_values, (&values), (&allocations))));
   status_require((db_record_update(
     (*(scm_to_db_txn(scm_txn))), (scm_to_uintmax(scm_id)), values)));
 exit:

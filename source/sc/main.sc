@@ -572,10 +572,8 @@
     allocations memreg-register-t)
   (scm-dynwind-begin 0)
   (set type (scm->db-type scm-type))
-  ;(status-require (scm-c->db-record-values type scm-values &values &allocations))
-  #;(debug-log
-    "value %d %lu" (convert-type values.data:data int64-t*) (convert-type values.data:data uint8-t*))
-  ;(scm-dynwind-unwind-handler db-guile-memreg-heap-free &allocations SCM-F-WIND-EXPLICITLY)
+  (status-require (scm-c->db-record-values type scm-values &values &allocations))
+  (scm-dynwind-unwind-handler db-guile-memreg-heap-free &allocations SCM-F-WIND-EXPLICITLY)
   (status-require
     (db-record-update (pointer-get (scm->db-txn scm-txn)) (scm->uintmax scm-id) values))
   (label exit

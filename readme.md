@@ -1,6 +1,6 @@
 guile scheme bindings for the database [sph-db](https://github.com/sph-mn/sph-db).
 
-2018-08: wip for new sph-db version
+2018-09: some things working. wip
 
 # dependencies
 * run-time
@@ -52,12 +52,15 @@ alternatively there is ``(db-open "/tmp/example")`` and ``(db-close env)``.
 
 ## create a type
 ```
-(define fields (q (("field-1" . int64) ("field-2" . uint8) ("field-3" . string))))
+(define fields (q (("field-1" . int64f) ("field-2" . uint8f) ("field-3" . string8))))
 (define type (db-type-create env "test-type" fields))
 ```
 
-all fixed size types like ``int64`` must come before variable size types like string.
-possible field types are: binary, string, float32, float64, int8, int16, int32, int64, uint8, uint16, uint32, uint64, string8, string16, string32, string64
+all fixed size types like ``int64f``, types with ``f`` at the end of the name, must come before variable size types like string8.
+the names correspond to the field-type-names of sph-db.
+currently possible field types are: binary8, binary16, binary32, binary64, string8, string16, string32, string64, string8f, string16f, string32f, string64f, string128f, string256f, binary8f, binary16f, binary32f, binary64f, binary128f, binary256f, uint8f, uint16f, uint32f, uint64f, uint128f, uint256f, int8f, int16f, int32f, int64f, int128f, int256f, float64f
+
+guile apparently doesnt support the ``float`` type (float32f), so data cant be stored in float fields and existing data is read as ``double`` (float64f)
 
 to get a type handle where needed
 ```
@@ -65,9 +68,11 @@ to get a type handle where needed
 ```
 
 ## create an index
-; integer field offsets or names supported
+integer field offsets and names supported
+```
 (define fields (list 1 "field-3"))
 (define index (db-index-create type index-fields))
+```
 
 to get a type handle where needed
 ```
@@ -141,6 +146,8 @@ with label - labels are also record ids:
 (define relations (db-relation-read selection 100))
 ```
 
+selects all relations that match any id of every filter left/right/label-ids ("or"). the empty list matches nothing and leads to an empty result. false disables a filter and matches all for that property
+
 ``db-relation-read`` returns a list of vectors. the following accessor procedures for relation vectors are available
 
 * db-relation-left
@@ -188,12 +195,16 @@ defaults are set by sph-db.
 
 note: db-guile selections are bound to threads, the lmdb option MDB-NOTLS would probably not work
 
+# error handling
+rnrs exceptions
+
 # internals
 the main extensions of this binding are:
 * free all selections and additionally allocated data automatically when the transaction ends. this is done using a generic selection type and a thread local variable with a linked-list of active selections
 * convert from scheme types to field types where appropriate
-* create exceptions for status_t errors
+* create exceptions for status-t errors
 * accessors for some structs like env
+* big integers are supported
 
 # notes
 * there can only be one transaction per thread. this matches lmdbs default behaviour
@@ -201,98 +212,3 @@ the main extensions of this binding are:
 
 # license
 gpl3+
-
-# ---old---
-
-the rest of this documentation is completely outdated and for a predecessor of sph-db
-
-# create type
-# create index
-# create nodes
-# read nodes
-# use indices
-# virtual records
-# error handling
-
-## store strings, bytevectors or integers (or any "write" serialisable scheme object)
-the result of ``db-intern-ensure`` are the new element identifiers (integers) in reverse order. when data is already stored then the existing element identifier is returned instead. data is stored typed and types are converted automatically. the same data represented using different types does not resolve to the same id. for example, a bytevector that stores the bytes of an utf-8 string will not be the same as the corresponding string. all serialisable scheme datums can be stored and retrieved. non-serialisable scheme objects like compiled lambdas will not be retrievable as such. for these cases the code to create the objects should be stored as a string instead. internally, some types are stored in native binary formats. strings are always utf-8, should another encoding be required then a bytevector must be used.
-
-unsigned integers not bigger than db-size-octets-id can be used cheaply in relations with the type "intern-small".
-intern-small nodes are virtual nodes that only exist in relations and are particularly well suited for numbers, for example timestamps.
-
-```
-(let*
-  ( (node-id (db-intern-small-data->id 1506209583))
-    (timestamp (db-intern-small-id->data node-id)))
-  #t)
-```
-
-## read relations
-```
-(define left-ids (list 1 2 3))
-(define right-ids (list 4 5 6))
-(define label-ids (list 7))
-(db-txn-call-write
-  (l (txn)
-    (let
-      ( (selection
-          (db-relation-select txn left-ids right-ids label-ids)))
-      (db-relation-read selection))))
-```
-
-gets all relations that match any id of every filter left/right/label-ids ("or"). the empty list matches nothing and leads to an empty result. false disables a filter.
-the result is a list of vectors, or node identifiers if retrieve-only-field is not false and a symbol.
-the vector element order is left/right/label/ordinal but it is safer to use ``db-relation-record-left`` and related procedures for access.
-there is also ``db-relation-select-read`` and an implicit-txn variant:
-```
-(db-relation-select-read* txn left-ids right-ids label-ids)
-```
-
-db-relation-select has more parameters:
-```
-db-relation-select :: txn left right label retrieve-only-field ordinal:((min . integer) (max . integer)) offset
-```
-
-db-relation-delete is similar, but does not need a select:
-```
-db-relation-delete :: txn left right label ordinal:((min . integer) (max . integer))
-```
-
-## translate internally stored data to identifiers
-```
-(db-intern-data->id txn (list "test"))
-```
-
-## create and write to a file
-the "1" stands for the number of new files to create
-
-```
-(define files-directory "/tmp/example-path/files/")
-(system* "mkdir" "-p" files-directory)
-(define (id->path id) (string-append files-directory (number->string id 32)))
-
-(db-use "/tmp/example-path"
-  (let ((identifiers (db-extern-create* 1)))
-    (call-with-output-file (id->path (first identifiers))
-      (lambda (file) (write "testcontent" file)))))
-```
-
-the database only tracks the file-name, which in this case is the database element identifier. files can be accessed and modified by any means
-
-## read from a file
-if "1" is the identifier for an existing element of type extern, then the following would try to read one scheme expression from a file
-```
-(call-with-input-file (id->path 1) read)
-```
-
-alternative
-```
-(let ((file (open-file (id->path 1))))
-  (read file)
-  (close file))
-```
-
-# list of exported bindings
-module name: ``(sph db)``
-```
-```

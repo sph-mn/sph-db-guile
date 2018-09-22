@@ -61,7 +61,7 @@ possible field types are: binary, string, float32, float64, int8, int16, int32, 
 
 to get a type handle where needed
 ```
-(db-type-get env "test-type")
+(define type (db-type-get env "test-type"))
 ```
 
 ## create an index
@@ -74,10 +74,52 @@ to get a type handle where needed
 (db-index-get type index-fields)
 ```
 
+## create a record
+```
+(define values (quote ((0 . 123) (1 . 255) (2 . "teststring"))))
+(define id (db-record-create txn type values))
+```
+
+## read records
+### by id
+```
+(define ids (list 123 2 342 12))
+(define records (db-record-get txn ids))
+```
+
+db-record-get returns a list of ``db-record`` objects. field values have not been read or converted at this point.
+to get record field values
+```
+(define record (first records))
+(define value (db-record-ref type record 1))
+(define values (db-record->vector record))
+```
+
+a solution for access by field name is work in progress
+
+### by type
+```
+(define selection (db-record-select txn type))
+(define records (db-record-read selection 3))
+```
+this tries to read the next 3 records. ``db-record-read`` can be called multiple times to read more records. if no more records are found, return an empty list
+
+### by custom matcher procedure
+```
+(define (matcher type record . custom-state) (pair #t custom-state))
+(define selection (db-record-select txn type matcher))
+```
+
+custom state values can be provided to the matcher as a single non-list argument or as a list for multiple arguments
+```
+(define selection (db-record-select txn type matcher (list 1 2 "3")))
+```
+
 ## create relations
 
-relations are between records specified by their ids and they are not checked for existence.
-a relation label is optional, the default is zero.
+relations are between records specified by their ids. no checks are made if valid records exist for the ids.
+a relation label is optional, the default is zero
+
 ```
 (db-txn-call-write (l (txn)
   (db-relation-ensure txn (list 1 2 3) (list 4 5))))
@@ -87,6 +129,45 @@ with label - labels are also record ids:
 ```
 (db-txn-call-write (l (txn)
   (db-relation-ensure txn (list 1 2 3) (list 4 5) (list 6))))
+```
+
+## read relations
+
+```
+(define left (list 1 2 3) )
+(define right (list 4 5) )
+(define label (list 6))
+(define selection (db-relation-select txn left right label))
+(define relations (db-relation-read selection 100))
+```
+
+``db-relation-read`` returns a list of vectors. the following accessor procedures for relation vectors are available
+
+* db-relation-left
+* db-relation-right
+* db-relation-label
+* db-relation-ordinal
+
+ordinal might be set to false if no filter for a left value was given. this corresponds to the behaviour of sph-db
+
+## virtual records
+virtual records are only ids and carry data with the id. the same data and type leads to the same id. they can be used in relations and fields as space saving records
+```
+(define type (db-type-create env "vtype-uint" (quote (uint16f)) db-type-flag-virtual))
+(define value 123)
+(define id (db-record-virtual type value))
+(equal? value (db-record-virtual-data type id))
+```
+
+### read records via index
+to be implemented
+
+```
+(define selection (db-record-index-select type 0 1))
+(define records (db-record-index-read selection (quote ((0 . "123")))))
+
+(define selection (db-index-select type 0 1))
+(define ids (db-index-read selection (quote ((0 . "123")))))
 ```
 
 # db-open options

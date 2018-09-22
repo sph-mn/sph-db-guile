@@ -497,7 +497,9 @@
     type (scm->db-type scm-type)
     field-offset (scm->uintmax scm-field)
     value (db-record-ref type (pointer-get (scm->db-record scm-record)) field-offset))
-  (return (scm-from-field-data value.data value.size (: (+ field-offset type:fields) type))))
+  (return
+    (scm-from-field-data
+      value.data value.size (struct-get (array-get type:fields field-offset) type))))
 
 (define (scm-db-record->vector scm-type scm-record) (SCM SCM SCM)
   (declare

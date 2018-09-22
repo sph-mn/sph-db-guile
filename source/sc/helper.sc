@@ -52,10 +52,16 @@
       (scm-from-latin1-symbol name)
       (scm-cons (scm-from-latin1-symbol "description") (scm-from-utf8-string description))
       (scm-cons (scm-from-latin1-symbol "c-routine") (scm-from-latin1-symbol __FUNCTION__))))
-  (scm-from-status-return result) (return (scm-from-status result))
-  (scm-from-status result)
-  (if* status-is-success result
-    (scm-from-status-error status)))
+  (scm-from-status-return result)
+  (return
+    (if* status-is-success result
+      (scm-from-status-error status)))
+  (scm-from-status-dynwind-end-return result)
+  (if status-is-success
+    (begin
+      (scm-dynwind-end)
+      (return result))
+    (return (scm-from-status-error status))))
 
 (declare
   scm-rnrs-raise SCM
@@ -288,7 +294,8 @@
       result
       (scm-cons
         (scm-cons
-          (scm-from-uint (array-get a:fields i)) (scm-from-utf8-stringn field.name field.name-len))
+          (scm-from-uint (array-get a:fields i))
+          (scm-from-utf8-stringn field.name (strlen field.name)))
         result)))
   (return result))
 
@@ -358,7 +365,7 @@
       (status-require (db-helper-malloc size &data))
       (scm-dynwind-unwind-handler free data 0)
       (case = field-type
-        (db-field-type-uint8f (set (pointer-get (convert-type data uint16-t*)) (scm->uint8 scm-a)))
+        (db-field-type-uint8f (set (pointer-get (convert-type data uint8-t*)) (scm->uint8 scm-a)))
         (db-field-type-uint16f
           (set (pointer-get (convert-type data uint16-t*)) (scm->uint16 scm-a)))
         (db-field-type-uint32f
@@ -394,8 +401,7 @@
     (else (status-set-both-goto status-group-db-guile status-id-field-value-invalid)))
   (set
     *result-needs-free #t
-    *result-data (scm->utf8-stringn scm-a 0)
-    *result-size (scm-c-string-utf8-length scm-a))
+    *result-data (scm->utf8-stringn scm-a result-size))
   (label exit
     (return status)))
 
@@ -560,12 +566,13 @@
     field-offset db-fields-len-t
     field-data-needs-free boolean
     field-data void*
+    values-len size-t
     field-data-size size-t)
-  (if (memreg-heap-allocate (scm->size-t (scm-length scm-values)) &allocations)
-    (begin
-      (status-set-both status-group-db-guile db-status-id-memory)
-      (return status)))
   (scm-dynwind-begin 0)
+  (set values-len (scm->size-t (scm-length scm-values)))
+  (sc-comment "allocate memreg for field-data and values array")
+  (if (and values-len (memreg-heap-allocate (+ 1 values-len) &allocations))
+    (status-set-both-goto status-group-db-guile db-status-id-memory))
   (scm-dynwind-unwind-handler db-guile-memreg-heap-free &allocations 0)
   (status-require (db-record-values-new type &values))
   (memreg-heap-add allocations values.data)
@@ -575,9 +582,10 @@
     (status-require
       (scm->field-data
         (scm-tail scm-value)
-        (: (+ field-offset type:fields) type) &field-data &field-data-size &field-data-needs-free))
-    (if field-data-needs-free (memreg-heap-add allocations field-data))
-    (db-record-values-set &values field-offset field-data field-data-size)
+        (struct-get (array-get type:fields field-offset) type)
+        &field-data &field-data-size &field-data-needs-free))
+    (if field-data-needs-free (memreg-heap-add allocations 0))
+    (status-require (db-record-values-set &values field-offset field-data field-data-size))
     (set scm-values (scm-tail scm-values)))
   (set *result-values values)
   (label exit

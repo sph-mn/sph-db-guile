@@ -44,7 +44,7 @@
       result
       (scm-cons
         (scm-cons
-          (scm-from-utf8-stringn field.name field.name-len) (scm-from-db-field-type field.type))
+          (scm-from-utf8-stringn field.name (strlen field.name)) (scm-from-db-field-type field.type))
         result)))
   (return result))
 
@@ -213,11 +213,10 @@
           field-type (scm->db-field-type (scm-tail scm-field))
           field-name-len (strlen field-name))
         (scm-dynwind-free field-name)))
-    (db-field-set (array-get fields i) field-type field-name field-name-len))
+    (db-field-set (array-get fields i) field-type field-name))
   (status-require (db-type-create (scm->db-env scm-env) name fields fields-len flags &type))
   (label exit
-    (scm-dynwind-end)
-    (scm-from-status-return (scm-from-db-type type))))
+    (scm-from-status-dynwind-end-return (scm-from-db-type type))))
 
 (define (scm-db-type-get scm-env scm-name-or-id) (SCM SCM SCM)
   (declare
@@ -291,16 +290,11 @@
     type db-type-t*)
   (scm-dynwind-begin 0)
   (set type (scm->db-type scm-type))
-  (debug-log "%d" 4)
   (status-require (scm-c->db-record-values type scm-values &values &allocations))
-  (debug-log "%d" 5)
   (scm-dynwind-unwind-handler db-guile-memreg-heap-free &allocations SCM-F-WIND-EXPLICITLY)
-  ;(status-require (db-record-create (pointer-get (scm->db-txn scm-txn)) values &result-id))
+  (status-require (db-record-create (pointer-get (scm->db-txn scm-txn)) values &result-id))
   (label exit
-    (debug-log "%d" 6)
-    (scm-dynwind-end)
-    (debug-log "%d" 7)
-    (scm-from-status-return (scm-from-uintmax result-id))))
+    (scm-from-status-dynwind-end-return (scm-from-uintmax result-id))))
 
 (define
   (scm-db-relation-ensure
@@ -361,8 +355,7 @@
   (status-require (db-record-get txn ids &records))
   (set result (scm-from-db-records records))
   (label exit
-    (scm-dynwind-end)
-    (scm-from-status-return result)))
+    (scm-from-status-dynwind-end-return result)))
 
 (define (scm-db-relation-select scm-txn scm-left scm-right scm-label scm-retrieve scm-ordinal)
   (SCM SCM SCM SCM SCM SCM SCM)
@@ -456,8 +449,7 @@
   (db-guile-selection-register selection db-guile-selection-type-relation)
   (label exit
     (if status-is-failure memreg-free)
-    (scm-dynwind-end)
-    (scm-from-status-return scm-selection)))
+    (scm-from-status-dynwind-end-return scm-selection)))
 
 (define (scm-db-record-select scm-txn scm-type scm-matcher scm-matcher-state) (SCM SCM SCM SCM SCM)
   status-declare
@@ -494,8 +486,7 @@
     scm-selection (scm-from-db-selection selection))
   (db-guile-selection-register selection db-guile-selection-type-record)
   (label exit
-    (scm-dynwind-end)
-    (scm-from-status-return scm-selection)))
+    (scm-from-status-dynwind-end-return scm-selection)))
 
 (define (scm-db-record-ref scm-type scm-record scm-field) (SCM SCM SCM SCM)
   (declare
@@ -547,9 +538,8 @@
     selection:status-id status.id
     result (scm-from-db-records records))
   (label exit
-    (scm-dynwind-end)
     db-status-success-if-notfound
-    (scm-from-status-return result)))
+    (scm-from-status-dynwind-end-return result)))
 
 (define (scm-db-relation-read scm-selection scm-count) (SCM SCM SCM)
   status-declare
@@ -571,9 +561,8 @@
     selection:status-id status.id
     result (selection:scm-from-relations relations))
   (label exit
-    (scm-dynwind-end)
     db-status-success-if-notfound
-    (scm-from-status-return result)))
+    (scm-from-status-dynwind-end-return result)))
 
 (define (scm-db-record-update scm-txn scm-type scm-id scm-values) (SCM SCM SCM SCM SCM)
   status-declare
@@ -581,19 +570,16 @@
   (declare
     type db-type-t*
     allocations memreg-register-t)
-  (set type (scm->db-type scm-type))
   (scm-dynwind-begin 0)
-  (debug-log "%d" 4)
-  (status-require (scm-c->db-record-values type scm-values &values &allocations))
-  (debug-log "%d" 5)
+  (set type (scm->db-type scm-type))
+  ;(status-require (scm-c->db-record-values type scm-values &values &allocations))
   #;(debug-log
     "value %d %lu" (convert-type values.data:data int64-t*) (convert-type values.data:data uint8-t*))
-  (scm-dynwind-unwind-handler db-guile-memreg-heap-free &allocations SCM-F-WIND-EXPLICITLY)
+  ;(scm-dynwind-unwind-handler db-guile-memreg-heap-free &allocations SCM-F-WIND-EXPLICITLY)
   (status-require
     (db-record-update (pointer-get (scm->db-txn scm-txn)) (scm->uintmax scm-id) values))
   (label exit
-    (scm-dynwind-end)
-    (scm-from-status-return SCM-UNSPECIFIED)))
+    (scm-from-status-dynwind-end-return SCM-UNSPECIFIED)))
 
 (define (scm-db-record-virtual scm-type scm-data) (SCM SCM SCM)
   status-declare
@@ -646,7 +632,7 @@
     (db-index-select
       (pointer-get (scm->db-txn scm-txn)) (scm->db-index scm-index) scm-values &selection:selection))
   (label exit
-    (scm-from-status-return SCM-UNSPECIFIED)))
+    (scm-from-status-dynwind-end-return SCM-UNSPECIFIED)))
 
 (define (scm-db-index-read scm-txn) (SCM SCM))
 (define (scm-db-record-index-select scm-txn) (SCM SCM))

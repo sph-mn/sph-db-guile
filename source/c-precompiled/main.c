@@ -51,7 +51,7 @@ SCM scm_db_type_fields(SCM a) {
     i = (i - 1);
     field = fields[i];
     result = scm_cons(
-      (scm_cons((scm_from_utf8_stringn((field.name), (field.name_len))),
+      (scm_cons((scm_from_utf8_stringn((field.name), (strlen((field.name))))),
         (scm_from_db_field_type((field.type))))),
       result);
   };
@@ -240,13 +240,12 @@ SCM scm_db_type_create(SCM scm_env,
       field_name_len = strlen(field_name);
       scm_dynwind_free(field_name);
     };
-    db_field_set((fields[i]), field_type, field_name, field_name_len);
+    db_field_set((fields[i]), field_type, field_name);
   };
   status_require((db_type_create(
     (scm_to_db_env(scm_env)), name, fields, fields_len, flags, (&type))));
 exit:
-  scm_dynwind_end();
-  scm_from_status_return((scm_from_db_type(type)));
+  scm_from_status_dynwind_end_return((scm_from_db_type(type)));
 };
 SCM scm_db_type_get(SCM scm_env, SCM scm_name_or_id) {
   db_type_t* type;
@@ -322,17 +321,14 @@ SCM scm_db_record_create(SCM scm_txn, SCM scm_type, SCM scm_values) {
   db_type_t* type;
   scm_dynwind_begin(0);
   type = scm_to_db_type(scm_type);
-  debug_log("%d", 4);
   status_require(
     (scm_c_to_db_record_values(type, scm_values, (&values), (&allocations))));
-  debug_log("%d", 5);
   scm_dynwind_unwind_handler(
     db_guile_memreg_heap_free, (&allocations), SCM_F_WIND_EXPLICITLY);
+  status_require(
+    (db_record_create((*(scm_to_db_txn(scm_txn))), values, (&result_id))));
 exit:
-  debug_log("%d", 6);
-  scm_dynwind_end();
-  debug_log("%d", 7);
-  scm_from_status_return((scm_from_uintmax(result_id)));
+  scm_from_status_dynwind_end_return((scm_from_uintmax(result_id)));
 };
 SCM scm_db_relation_ensure(SCM scm_txn,
   SCM scm_left,
@@ -400,8 +396,7 @@ SCM scm_db_record_get(SCM scm_txn, SCM scm_ids) {
   status_require((db_record_get(txn, ids, (&records))));
   result = scm_from_db_records(records);
 exit:
-  scm_dynwind_end();
-  scm_from_status_return(result);
+  scm_from_status_dynwind_end_return(result);
 };
 SCM scm_db_relation_select(SCM scm_txn,
   SCM scm_left,
@@ -511,8 +506,7 @@ exit:
   if (status_is_failure) {
     memreg_free;
   };
-  scm_dynwind_end();
-  scm_from_status_return(scm_selection);
+  scm_from_status_dynwind_end_return(scm_selection);
 };
 SCM scm_db_record_select(SCM scm_txn,
   SCM scm_type,
@@ -552,8 +546,7 @@ SCM scm_db_record_select(SCM scm_txn,
   scm_selection = scm_from_db_selection(selection);
   db_guile_selection_register(selection, db_guile_selection_type_record);
 exit:
-  scm_dynwind_end();
-  scm_from_status_return(scm_selection);
+  scm_from_status_dynwind_end_return(scm_selection);
 };
 SCM scm_db_record_ref(SCM scm_type, SCM scm_record, SCM scm_field) {
   db_record_value_t value;
@@ -606,9 +599,8 @@ SCM scm_db_record_read(SCM scm_selection, SCM scm_count) {
   selection->status_id = status.id;
   result = scm_from_db_records(records);
 exit:
-  scm_dynwind_end();
   db_status_success_if_notfound;
-  scm_from_status_return(result);
+  scm_from_status_dynwind_end_return(result);
 };
 SCM scm_db_relation_read(SCM scm_selection, SCM scm_count) {
   status_declare;
@@ -630,9 +622,8 @@ SCM scm_db_relation_read(SCM scm_selection, SCM scm_count) {
   selection->status_id = status.id;
   result = (selection->scm_from_relations)(relations);
 exit:
-  scm_dynwind_end();
   db_status_success_if_notfound;
-  scm_from_status_return(result);
+  scm_from_status_dynwind_end_return(result);
 };
 SCM scm_db_record_update(SCM scm_txn,
   SCM scm_type,
@@ -642,19 +633,12 @@ SCM scm_db_record_update(SCM scm_txn,
   db_record_values_declare(values);
   db_type_t* type;
   memreg_register_t allocations;
-  type = scm_to_db_type(scm_type);
   scm_dynwind_begin(0);
-  debug_log("%d", 4);
-  status_require(
-    (scm_c_to_db_record_values(type, scm_values, (&values), (&allocations))));
-  debug_log("%d", 5);
-  scm_dynwind_unwind_handler(
-    db_guile_memreg_heap_free, (&allocations), SCM_F_WIND_EXPLICITLY);
+  type = scm_to_db_type(scm_type);
   status_require((db_record_update(
     (*(scm_to_db_txn(scm_txn))), (scm_to_uintmax(scm_id)), values)));
 exit:
-  scm_dynwind_end();
-  scm_from_status_return(SCM_UNSPECIFIED);
+  scm_from_status_dynwind_end_return(SCM_UNSPECIFIED);
 };
 SCM scm_db_record_virtual(SCM scm_type, SCM scm_data) {
   status_declare;

@@ -3,6 +3,8 @@
 
 (import (sph) (sph test))
 
+(setenv "MALLOC_CHECK_" "2")
+
 (test-execute-modules-by-prefix #:settings
   (test-settings-default-custom path-search "source/scheme" reporter-name (q compact))
   (q (test module sph db)))

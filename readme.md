@@ -70,7 +70,7 @@ to get a type handle where needed
 ## create an index
 integer field offsets and names supported
 ```
-(define fields (list 1 "field-3"))
+(define index-fields (list 1 "field-3"))
 (define index (db-index-create type index-fields))
 ```
 
@@ -120,6 +120,20 @@ custom state values can be provided to the matcher as a single non-list argument
 (define selection (db-record-select txn type matcher (list 1 2 "3")))
 ```
 
+### via index
+only record ids
+```
+(define index (db-index-get type (list "field-1" "field-3")))
+(define selection (db-index-select txn index (q ((0 . 123) (1 . 45)))))
+(define ids (db-index-read selection 4))
+```
+
+record objects - not yet implemented
+```
+(define selection (db-record-index-select txn index (q ((0 . 123) (1 . 45)))))
+(define records (db-record-index-read selection 4))
+```
+
 ## create relations
 
 relations are between records specified by their ids. no checks are made if valid records exist for the ids.
@@ -164,17 +178,6 @@ virtual records are only ids and carry data with the id. the same data and type 
 (define value 123)
 (define id (db-record-virtual type value))
 (equal? value (db-record-virtual-data type id))
-```
-
-### read records via index
-to be implemented
-
-```
-(define selection (db-record-index-select type 0 1))
-(define records (db-record-index-read selection (quote ((0 . "123")))))
-
-(define selection (db-index-select type 0 1))
-(define ids (db-index-read selection (quote ((0 . "123")))))
 ```
 
 # db-open options

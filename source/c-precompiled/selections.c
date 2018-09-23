@@ -1,13 +1,15 @@
 /* generic db-selection type with the option to carry data to be freed when the
-  selection isnt needed anymore. db-guile-selection-type-t is the list element
-  type */
+  selection isnt needed anymore. db-guile-selection-t is the list element type
+*/
 #define db_guile_selections_first mi_list_first
 #define db_guile_selections_rest mi_list_rest
 #define mi_list_name_prefix db_guile_selections
 #define mi_list_element_t db_guile_selection_t
 typedef enum {
   db_guile_selection_type_relation,
-  db_guile_selection_type_record
+  db_guile_selection_type_record,
+  db_guile_selection_type_record_index,
+  db_guile_selection_type_index
 } db_guile_selection_type_t;
 typedef struct {
   void* selection;
@@ -44,6 +46,8 @@ void db_guile_selections_free() {
   db_guile_selection_t a;
   db_guile_relation_selection_t relation_selection;
   db_guile_record_selection_t record_selection;
+  db_guile_index_selection_t index_selection;
+  db_guile_record_index_selection_t record_index_selection;
   while (db_guile_active_selections) {
     a = db_guile_selections_first(db_guile_active_selections);
     if (db_guile_selection_type_relation == a.selection_type) {
@@ -56,6 +60,15 @@ void db_guile_selections_free() {
     } else if (db_guile_selection_type_record == a.selection_type) {
       record_selection = *((db_guile_record_selection_t*)(a.selection));
       db_record_selection_finish((&(record_selection.selection)));
+      free((a.selection));
+    } else if (db_guile_selection_type_index == a.selection_type) {
+      index_selection = *((db_guile_index_selection_t*)(a.selection));
+      db_index_selection_finish((&(index_selection.selection)));
+      free((a.selection));
+    } else if (db_guile_selection_type_record_index == a.selection_type) {
+      record_index_selection =
+        *((db_guile_record_index_selection_t*)(a.selection));
+      db_record_index_selection_finish((&(record_index_selection.selection)));
       free((a.selection));
     };
     db_guile_active_selections =

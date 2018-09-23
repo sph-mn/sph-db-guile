@@ -289,11 +289,13 @@ SCM scm_db_index_get(SCM scm_env, SCM scm_type, SCM scm_fields) {
   db_fields_len_t* fields;
   db_fields_len_t fields_len;
   db_index_t* index;
+  SCM result;
   status_require(
     (scm_to_field_offsets(scm_type, scm_fields, (&fields), (&fields_len))));
   index = db_index_get((scm_to_db_type(scm_type)), fields, fields_len);
+  result = (index ? scm_from_db_index(index) : SCM_BOOL_F);
 exit:
-  scm_from_status_return((index ? scm_from_db_index(index) : SCM_BOOL_F));
+  scm_from_status_return(result);
 };
 SCM scm_db_index_delete(SCM scm_env, SCM scm_index) {
   status_declare;
@@ -327,6 +329,9 @@ SCM scm_db_record_create(SCM scm_txn, SCM scm_type, SCM scm_values) {
     db_guile_memreg_heap_free, (&allocations), SCM_F_WIND_EXPLICITLY);
   status_require(
     (db_record_create((*(scm_to_db_txn(scm_txn))), values, (&result_id))));
+  /* just to make sure that for example referenced bytevector contents dont get
+   * freed before */
+  scm_remember_upto_here_1(scm_values);
 exit:
   scm_from_status_dynwind_end_return((scm_from_uintmax(result_id)));
 };
@@ -494,6 +499,9 @@ SCM scm_db_relation_select(SCM scm_txn,
     label_pointer,
     ordinal_pointer,
     (&(selection->selection)))));
+  scm_dynwind_unwind_handler(((void (*)(void*))(db_relation_selection_finish)),
+    (&(selection->selection)),
+    0);
   selection->left = left;
   selection->right = right;
   selection->label = label;
@@ -542,6 +550,9 @@ SCM scm_db_record_select(SCM scm_txn,
     matcher,
     matcher_state,
     (&(selection->selection)))));
+  scm_dynwind_unwind_handler(((void (*)(void*))(db_record_selection_finish)),
+    (&(selection->selection)),
+    0);
   selection->status_id = status.id;
   scm_selection = scm_from_db_selection(selection);
   db_guile_selection_register(selection, db_guile_selection_type_record);
@@ -556,7 +567,7 @@ SCM scm_db_record_ref(SCM scm_type, SCM scm_record, SCM scm_field) {
   field_offset = scm_to_uintmax(scm_field);
   value = db_record_ref(type, (*(scm_to_db_record(scm_record))), field_offset);
   return ((scm_from_field_data(
-    (value.data), (value.size), ((field_offset + type->fields)->type))));
+    (value.data), (value.size), (((type->fields)[field_offset]).type))));
 };
 SCM scm_db_record_to_vector(SCM scm_type, SCM scm_record) {
   db_fields_len_t fields_len;
@@ -637,6 +648,8 @@ SCM scm_db_record_update(SCM scm_txn,
   type = scm_to_db_type(scm_type);
   status_require(
     (scm_c_to_db_record_values(type, scm_values, (&values), (&allocations))));
+  scm_dynwind_unwind_handler(
+    db_guile_memreg_heap_free, (&allocations), SCM_F_WIND_EXPLICITLY);
   status_require((db_record_update(
     (*(scm_to_db_txn(scm_txn))), (scm_to_uintmax(scm_id)), values)));
 exit:
@@ -683,9 +696,114 @@ SCM scm_db_record_virtual_data(SCM scm_type, SCM scm_id) {
 exit:
   scm_from_status_return(result);
 };
-SCM scm_db_index_read(SCM scm_txn);
-SCM scm_db_record_index_select(SCM scm_txn);
-SCM scm_db_record_index_read(SCM scm_txn, SCM scm_count);
+SCM scm_db_index_select(SCM scm_txn, SCM scm_index, SCM scm_values) {
+  status_declare;
+  memreg_heap_declare(allocations);
+  db_record_values_declare(values);
+  SCM result;
+  db_guile_index_selection_t* selection;
+  db_index_t index;
+  scm_dynwind_begin(0);
+  index = *(scm_to_db_index(scm_index));
+  status_require(
+    (db_helper_malloc((sizeof(db_guile_index_selection_t)), (&selection))));
+  scm_dynwind_unwind_handler(free, selection, 0);
+  /* this converts all given values even if some fields are not used */
+  status_require((scm_c_to_db_record_values(
+    (index.type), scm_values, (&values), (&allocations))));
+  scm_dynwind_unwind_handler(
+    db_guile_memreg_heap_free, (&allocations), SCM_F_WIND_EXPLICITLY);
+  /* scm-values need not be gc protected as index-select copies necessary data
+   */
+  status_require_read((db_index_select(
+    (*(scm_to_db_txn(scm_txn))), index, values, (&(selection->selection)))));
+  scm_dynwind_unwind_handler(((void (*)(void*))(db_index_selection_finish)),
+    (&(selection->selection)),
+    0);
+  db_guile_selection_register(selection, db_guile_selection_type_index);
+  selection->status_id = status.id;
+  result = scm_from_db_selection(selection);
+  db_status_success_if_notfound;
+exit:
+  scm_from_status_dynwind_end_return(result);
+};
+SCM scm_db_index_read(SCM scm_selection, SCM scm_count) {
+  status_declare;
+  db_ids_declare(ids);
+  SCM scm_ids;
+  size_t count;
+  db_guile_index_selection_t* selection;
+  scm_dynwind_begin(0);
+  count = scm_to_size_t(scm_count);
+  selection = scm_to_db_selection(scm_selection);
+  if (!(status_id_success == selection->status_id)) {
+    return (SCM_EOL);
+  };
+  status_require((db_ids_new(count, (&ids))));
+  status_require_read((db_index_read((selection->selection), count, (&ids))));
+  scm_dynwind_unwind_handler(free, (ids.start), SCM_F_WIND_EXPLICITLY);
+  selection->status_id = status.id;
+  scm_ids = scm_from_db_ids(ids);
+  db_status_success_if_notfound;
+exit:
+  scm_from_status_dynwind_end_return(scm_ids);
+};
+SCM scm_db_record_index_select(SCM scm_txn, SCM scm_index, SCM scm_values) {
+  status_declare;
+  memreg_heap_declare(allocations);
+  db_record_values_declare(values);
+  SCM result;
+  db_guile_record_index_selection_t* selection;
+  db_index_t index;
+  scm_dynwind_begin(0);
+  index = *(scm_to_db_index(scm_index));
+  status_require((db_helper_malloc(
+    (sizeof(db_guile_record_index_selection_t)), (&(selection->selection)))));
+  scm_dynwind_unwind_handler(free, selection, 0);
+  status_require((scm_c_to_db_record_values(
+    (index.type), scm_values, (&values), (&allocations))));
+  scm_dynwind_unwind_handler(
+    db_guile_memreg_heap_free, (&allocations), SCM_F_WIND_EXPLICITLY);
+  /* scm-values need not be gc protected as index-select copies necessary data
+   */
+  status_require((db_record_index_select(
+    (*(scm_to_db_txn(scm_txn))), index, values, (&(selection->selection)))));
+  scm_dynwind_unwind_handler(
+    ((void (*)(void*))(db_record_index_selection_finish)),
+    (&(selection->selection)),
+    0);
+  db_guile_selection_register(selection, db_guile_selection_type_record_index);
+  selection->status_id = status.id;
+  result = scm_from_db_selection(selection);
+exit:
+  scm_from_status_dynwind_end_return(result);
+};
+/** allow multiple calls by tracking the record-select return status and
+  eventually not calling record-select again */
+SCM scm_db_record_index_read(SCM scm_selection, SCM scm_count) {
+  status_declare;
+  db_records_t records;
+  db_count_t count;
+  SCM result;
+  db_guile_record_selection_t* selection;
+  result = SCM_EOL;
+  selection =
+    ((db_guile_record_selection_t*)(scm_to_db_selection(scm_selection)));
+  if (!(status_id_success == selection->status_id)) {
+    return (result);
+  };
+  count = scm_to_uintmax(scm_count);
+  scm_dynwind_begin(0);
+  status_require((db_records_new(count, (&records))));
+  scm_dynwind_free((records.start));
+  status_require_read(
+    (db_record_read((selection->selection), count, (&records))));
+  selection->status_id = status.id;
+  result = scm_from_db_records(records);
+exit:
+  db_status_success_if_notfound;
+  scm_from_status_dynwind_end_return(result);
+};
 /** prepare scm values and register guile bindings */
 void db_guile_init() {
   SCM type_slots;
@@ -868,4 +986,16 @@ void db_guile_init() {
     0,
     scm_db_record_virtual_data,
     ("db-env id -> any:data"));
+  scm_c_define_procedure_c("db-index-select",
+    3,
+    0,
+    0,
+    scm_db_index_select,
+    ("txn db-index list:((field-id . any:value) ...) -> db-selection"));
+  scm_c_define_procedure_c("db-index-read",
+    2,
+    0,
+    0,
+    scm_db_index_read,
+    ("db-selection integer:count -> (integer:record-id ...)"));
 };

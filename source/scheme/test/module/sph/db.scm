@@ -3,7 +3,8 @@
     (sph db)
     (rnrs bytevectors)
     (sph list)
-    (only (srfi srfi-1) lset-difference)
+    (sph alist)
+    (only (srfi srfi-1) lset-difference lset-intersection)
     (test helper sph db))
 
   (define-test (db-env env)
@@ -49,47 +50,48 @@
         (let ((left (list 1 2 3)) (right (list 4 5)) (label (list 7)))
           (db-relation-ensure txn left right label (l (a) (list a (+ 1 a))) 2)))))
 
-  (define common-element-count 100)
+  (define common-element-count 1)
 
   (define-test (db-record-create env)
     (test-helper-type-create-1 env
       (l (type-name type-1-fields type-1)
         (test-helper-records-create-1 common-element-count env
           type-1
-          (l (values ids)
-            (db-txn-call-write env
-              (l (txn)
-                (assert-and (every integer? ids)
-                  (= common-element-count (length (db-record-get txn ids)))
-                  (assert-true "record-get and value compare"
-                    (let*
-                      ( (records (db-record-get txn ids))
-                        (values-read
-                          (map
-                            (l (a)
-                              (compact
-                                (map-with-index (l (index a) (and a (pair index a)))
-                                  (vector->list (db-record->vector type-1 a)))))
-                            records)))
-                      ; check that all inserted values exist in the read values.
-                      ; some extra values may have been read from unset fields (set to zero or something)
-                      (every
-                        (l (values)
-                          (any
-                            (l (values-read)
-                              (every
-                                (l (value)
-                                  (any (l (value-read) (equal? value-read value)) values-read))
-                                values))
-                            values-read))
-                        values)))))))))))
+          (l (ids-and-values)
+            (let ((ids (map first ids-and-values)) (values (map tail ids-and-values)))
+              (db-txn-call-write env
+                (l (txn)
+                  (assert-and (every integer? ids)
+                    (= common-element-count (length (db-record-get txn ids)))
+                    (assert-true "record-get and value compare"
+                      (let*
+                        ( (records (db-record-get txn ids))
+                          (values-read
+                            (map
+                              (l (a)
+                                (compact
+                                  (map-with-index (l (index a) (and a (pair index a)))
+                                    (vector->list (db-record->vector type-1 a)))))
+                              records)))
+                        ; check that all inserted values exist in the read values.
+                        ; some extra values may have been read from unset fields (set to zero or something)
+                        (every
+                          (l (values)
+                            (any
+                              (l (values-read)
+                                (every
+                                  (l (value)
+                                    (any (l (value-read) (equal? value-read value)) values-read))
+                                  values))
+                              values-read))
+                          values))))))))))))
 
   (define-test (db-record-select env)
     (test-helper-type-create-1 env
       (l (type-name type-1-fields type-1)
         (test-helper-records-create-1 common-element-count env
           type-1
-          (l (values ids)
+          (l (ids-and-values)
             (db-txn-call-write env
               (l (txn)
                 (let (selection (db-record-select txn type-1))
@@ -147,15 +149,35 @@
       (test-helper-type-create-1 env
         (l (type-name type-1-fields type-1)
           (let
-            ( (values-old (list-q (0 . -123) (1 . 123) (4 . "123") (3 . 1.23)))
-              (values-new (list-q (0 . 1) (1 . 2) (4 . "3") (3 . 4.5))))
+            ( (values-old (list-q (0 . -123) (1 . 123) (3 . 1.23) (4 . "123")))
+              (values-new (list-q (0 . 1) (1 . 2) (3 . 4.5) (4 . "3"))))
             (db-txn-call-write env
               (l (txn) (list type-1 (db-record-create txn type-1 values-old) values-old values-new))))))))
 
-  (define-procedure-tests tests (db-record-update)
-    (db-record-create) (db-record-select)
-    (db-statistics) (db-record-virtual)
-    (db-other) (db-relation-ensure) (db-relation-select) (db-type) (db-index) (db-env) (db-txn))
+  (define-test (db-index-select env)
+    (let ((index-fields-1 (list 0 1)) (index-fields-2 (list 0 4)))
+      (test-helper-type-create-1 env
+        (l (type-name type-fields type)
+          ; create index without previously existing records
+          (db-index-create env type index-fields-1)
+          ; create index with previously existing records
+          (test-helper-records-create-2 2 env
+            type
+            (l (ids-and-values)
+              (let (index (db-index-create env type index-fields-2))
+                (db-txn-call-write env
+                  (l (txn)
+                    (let (id-and-values (first ids-and-values))
+                      (null?
+                        (lset-difference equal?
+                          (list (first id-and-values) (first (list-ref ids-and-values 2)))
+                          (db-index-read (db-index-select txn index (tail id-and-values)) 5)))))))))))))
+
+  (define-procedure-tests tests (db-index-select)
+    (db-record-update) (db-record-create)
+    (db-record-select) (db-statistics)
+    (db-record-virtual) (db-other)
+    (db-relation-ensure) (db-relation-select) (db-type) (db-index) (db-env) (db-txn))
 
   ;record-update
   ;record-delete

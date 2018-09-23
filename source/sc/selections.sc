@@ -1,6 +1,6 @@
 (sc-comment
   "generic db-selection type with the option to carry data to be freed when the selection isnt needed anymore.
-  db-guile-selection-type-t is the list element type")
+  db-guile-selection-t is the list element type")
 
 (pre-define
   db-guile-selections-first mi-list-first
@@ -10,7 +10,11 @@
 
 (declare
   db-guile-selection-type-t
-  (type (enum (db-guile-selection-type-relation db-guile-selection-type-record)))
+  (type
+    (enum
+      (db-guile-selection-type-relation
+        db-guile-selection-type-record
+        db-guile-selection-type-record-index db-guile-selection-type-index)))
   db-guile-selection-t
   (type
     (struct
@@ -53,7 +57,9 @@
   (declare
     a db-guile-selection-t
     relation-selection db-guile-relation-selection-t
-    record-selection db-guile-record-selection-t)
+    record-selection db-guile-record-selection-t
+    index-selection db-guile-index-selection-t
+    record-index-selection db-guile-record-index-selection-t)
   (while db-guile-active-selections
     (set a (db-guile-selections-first db-guile-active-selections))
     (case = a.selection-type
@@ -66,7 +72,14 @@
         (db-ids-free relation-selection.right) (free a.selection))
       (db-guile-selection-type-record
         (set record-selection (pointer-get (convert-type a.selection db-guile-record-selection-t*)))
-        (db-record-selection-finish &record-selection.selection) (free a.selection)))
+        (db-record-selection-finish &record-selection.selection) (free a.selection))
+      (db-guile-selection-type-index
+        (set index-selection (pointer-get (convert-type a.selection db-guile-index-selection-t*)))
+        (db-index-selection-finish &index-selection.selection) (free a.selection))
+      (db-guile-selection-type-record-index
+        (set record-index-selection
+          (pointer-get (convert-type a.selection db-guile-record-index-selection-t*)))
+        (db-record-index-selection-finish &record-index-selection.selection) (free a.selection)))
     (set db-guile-active-selections (db-guile-selections-drop db-guile-active-selections))))
 
 (define (db-guile-selection-register db-selection selection-type)

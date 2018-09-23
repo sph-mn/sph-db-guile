@@ -618,7 +618,7 @@ SCM scm_from_db_ids(db_ids_t a) {
   SCM b;
   b = SCM_EOL;
   while (db_ids_in_range(a)) {
-    b = scm_cons((scm_from_uint((db_ids_get(a)))), b);
+    b = scm_cons((scm_from_uintmax((db_ids_get(a)))), b);
     db_ids_forward(a);
   };
   return (b);

@@ -5,6 +5,7 @@
     test-helper-delete-database-files
     test-helper-field-data
     test-helper-records-create-1
+    test-helper-records-create-2
     test-helper-relations-create-1
     test-helper-type-create-1)
   (import
@@ -15,6 +16,7 @@
     (sph char-set-vector)
     (sph db)
     (sph list)
+    (sph list one)
     (sph one)
     (sph random-data)
     (only (rnrs base) set!))
@@ -43,7 +45,7 @@
 
   ; todo: create type with all field types and test create/read
 
-  (define (test-helper-records-create-1 count env type-1 c)
+  (define (test-helper-records-create-1 count env type-1 c) "records that use the full field size"
     (let
       (values
         (map-integers count
@@ -53,14 +55,30 @@
                 (compact
                   (list (and (random-boolean) (pair 0 (test-helper-field-data (q int) 8)))
                     (and (random-boolean) (pair 1 (test-helper-field-data (q uint) 1)))
-                    (and (random-boolean) (pair 4 (test-helper-field-data (q string) 255)))
+                    (and (random-boolean) (pair 2 (test-helper-field-data (q binary) 32)))
                     (and (random-boolean) (pair 3 (test-helper-field-data (q float) 8)))
-                    (and (random-boolean) (pair 2 (test-helper-field-data (q binary) 32))))))
-              (if (null? a) (list (pair 1 (test-helper-field-data (q uint) 1))) a)))))
-      (apply c
+                    (and (random-boolean) (pair 4 (test-helper-field-data (q string) 7))))))
+              (randomise (if (null? a) (list (pair 1 (test-helper-field-data (q uint) 1))) a))))))
+      (c
         (db-txn-call-write env
-          (l (txn)
-            (let (ids (map (l (a) (db-record-create txn type-1 a)) values)) (list values ids)))))))
+          (l (txn) (map (l (values) (pair (db-record-create txn type-1 values) values)) values))))))
+
+  (define (test-helper-records-create-2 count env type-1 c)
+    "records that dont use a bigger size than what fits into indices"
+    (let*
+      ( (values-1
+          (list (pair 0 -123) (pair 1 123)
+            (pair 2 (uint-list->bytevector (list 1 2 3) (endianness little) 3)) (pair 3 1.23)
+            (pair 4 "123")))
+        (values
+          (list values-1
+            (list (pair 0 -45) (pair 1 45)
+              (pair 2 (uint-list->bytevector (list 4 5 6) (endianness little) 3)) (pair 3 4.56)
+              (pair 4 "456"))
+            values-1)))
+      (c
+        (db-txn-call-write env
+          (l (txn) (map (l (values) (pair (db-record-create txn type-1 values) values)) values))))))
 
   (define (test-helper-relations-create-1 env c)
     (let ((left (list 1 2 3)) (right (list 1 2)) (label (list 7 8)))

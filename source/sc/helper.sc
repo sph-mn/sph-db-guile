@@ -491,7 +491,7 @@
   (declare b SCM)
   (set b SCM-EOL)
   (while (db-ids-in-range a)
-    (set b (scm-cons (scm-from-uint (db-ids-get a)) b))
+    (set b (scm-cons (scm-from-uintmax (db-ids-get a)) b))
     (db-ids-forward a))
   (return b))
 

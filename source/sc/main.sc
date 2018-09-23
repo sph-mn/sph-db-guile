@@ -257,13 +257,16 @@
   (declare
     fields db-fields-len-t*
     fields-len db-fields-len-t
-    index db-index-t*)
+    index db-index-t*
+    result SCM)
   (status-require (scm->field-offsets scm-type scm-fields &fields &fields-len))
-  (set index (db-index-get (scm->db-type scm-type) fields fields-len))
+  (set
+    index (db-index-get (scm->db-type scm-type) fields fields-len)
+    result
+    (if* index (scm-from-db-index index)
+      SCM-BOOL-F))
   (label exit
-    (scm-from-status-return
-      (if* index (scm-from-db-index index)
-        SCM-BOOL-F))))
+    (scm-from-status-return result)))
 
 (define (scm-db-index-delete scm-env scm-index) (SCM SCM SCM)
   status-declare
@@ -293,6 +296,9 @@
   (status-require (scm-c->db-record-values type scm-values &values &allocations))
   (scm-dynwind-unwind-handler db-guile-memreg-heap-free &allocations SCM-F-WIND-EXPLICITLY)
   (status-require (db-record-create (pointer-get (scm->db-txn scm-txn)) values &result-id))
+  (sc-comment
+    "just to make sure that for example referenced bytevector contents dont get freed before")
+  (scm-remember-upto-here-1 scm-values)
   (label exit
     (scm-from-status-dynwind-end-return (scm-from-uintmax result-id))))
 
@@ -438,6 +444,8 @@
     (db-relation-select
       (pointer-get (scm->db-txn scm-txn))
       left-pointer right-pointer label-pointer ordinal-pointer &selection:selection))
+  (scm-dynwind-unwind-handler
+    (convert-type db-relation-selection-finish (function-pointer void void*)) &selection:selection 0)
   (set
     selection:left left
     selection:right right
@@ -481,6 +489,8 @@
     (db-record-select
       (pointer-get (scm->db-txn scm-txn))
       (scm->db-type scm-type) matcher matcher-state &selection:selection))
+  (scm-dynwind-unwind-handler
+    (convert-type db-record-selection-finish (function-pointer void void*)) &selection:selection 0)
   (set
     selection:status-id status.id
     scm-selection (scm-from-db-selection selection))
@@ -622,21 +632,108 @@
   (label exit
     (scm-from-status-return result)))
 
-#;(define (scm-db-index-select scm-txn scm-index scm-values) (SCM SCM SCM SCM)
+(define (scm-db-index-select scm-txn scm-index scm-values) (SCM SCM SCM SCM)
   status-declare
-  (declare selection db-guile-index-selection-t*)
+  (memreg-heap-declare allocations)
+  (db-record-values-declare values)
+  (declare
+    result SCM
+    selection db-guile-index-selection-t*
+    index db-index-t)
   (scm-dynwind-begin 0)
+  (set index (pointer-get (scm->db-index scm-index)))
   (status-require (db-helper-malloc (sizeof db-guile-index-selection-t) &selection))
   (scm-dynwind-unwind-handler free selection 0)
-  (status-require
-    (db-index-select
-      (pointer-get (scm->db-txn scm-txn)) (scm->db-index scm-index) scm-values &selection:selection))
+  (sc-comment "this converts all given values even if some fields are not used")
+  (status-require (scm-c->db-record-values index.type scm-values &values &allocations))
+  (scm-dynwind-unwind-handler db-guile-memreg-heap-free &allocations SCM-F-WIND-EXPLICITLY)
+  (sc-comment "scm-values need not be gc protected as index-select copies necessary data")
+  (status-require-read
+    (db-index-select (pointer-get (scm->db-txn scm-txn)) index values &selection:selection))
+  (scm-dynwind-unwind-handler
+    (convert-type db-index-selection-finish (function-pointer void void*)) &selection:selection 0)
+  (db-guile-selection-register selection db-guile-selection-type-index)
+  (set
+    selection:status-id status.id
+    result (scm-from-db-selection selection))
+  db-status-success-if-notfound
   (label exit
-    (scm-from-status-dynwind-end-return SCM-UNSPECIFIED)))
+    (scm-from-status-dynwind-end-return result)))
 
-(define (scm-db-index-read scm-txn) (SCM SCM))
-(define (scm-db-record-index-select scm-txn) (SCM SCM))
-(define (scm-db-record-index-read scm-txn scm-count) (SCM SCM SCM))
+(define (scm-db-index-read scm-selection scm-count) (SCM SCM SCM)
+  status-declare
+  (db-ids-declare ids)
+  (declare
+    scm-ids SCM
+    count size-t
+    selection db-guile-index-selection-t*)
+  (scm-dynwind-begin 0)
+  (set
+    count (scm->size-t scm-count)
+    selection (scm->db-selection scm-selection))
+  (if (not (= status-id-success selection:status-id)) (return SCM-EOL))
+  (status-require (db-ids-new count &ids))
+  (status-require-read (db-index-read selection:selection count &ids))
+  (scm-dynwind-unwind-handler free ids.start SCM-F-WIND-EXPLICITLY)
+  (set
+    selection:status-id status.id
+    scm-ids (scm-from-db-ids ids))
+  db-status-success-if-notfound
+  (label exit
+    (scm-from-status-dynwind-end-return scm-ids)))
+
+(define (scm-db-record-index-select scm-txn scm-index scm-values) (SCM SCM SCM SCM)
+  status-declare
+  (memreg-heap-declare allocations)
+  (db-record-values-declare values)
+  (declare
+    result SCM
+    selection db-guile-record-index-selection-t*
+    index db-index-t)
+  (scm-dynwind-begin 0)
+  (set index (pointer-get (scm->db-index scm-index)))
+  (status-require
+    (db-helper-malloc (sizeof db-guile-record-index-selection-t) &selection:selection))
+  (scm-dynwind-unwind-handler free selection 0)
+  (status-require (scm-c->db-record-values index.type scm-values &values &allocations))
+  (scm-dynwind-unwind-handler db-guile-memreg-heap-free &allocations SCM-F-WIND-EXPLICITLY)
+  (sc-comment "scm-values need not be gc protected as index-select copies necessary data")
+  (status-require
+    (db-record-index-select (pointer-get (scm->db-txn scm-txn)) index values &selection:selection))
+  (scm-dynwind-unwind-handler
+    (convert-type db-record-index-selection-finish (function-pointer void void*))
+    &selection:selection 0)
+  (db-guile-selection-register selection db-guile-selection-type-record-index)
+  (set
+    selection:status-id status.id
+    result (scm-from-db-selection selection))
+  (label exit
+    (scm-from-status-dynwind-end-return result)))
+
+(define (scm-db-record-index-read scm-selection scm-count) (SCM SCM SCM)
+  "allow multiple calls by tracking the record-select return status and
+  eventually not calling record-select again"
+  status-declare
+  (declare
+    records db-records-t
+    count db-count-t
+    result SCM
+    selection db-guile-record-selection-t*)
+  (set
+    result SCM-EOL
+    selection (convert-type (scm->db-selection scm-selection) db-guile-record-selection-t*))
+  (if (not (= status-id-success selection:status-id)) (return result))
+  (set count (scm->uintmax scm-count))
+  (scm-dynwind-begin 0)
+  (status-require (db-records-new count &records))
+  (scm-dynwind-free records.start)
+  (status-require-read (db-record-read selection:selection count &records))
+  (set
+    selection:status-id status.id
+    result (scm-from-db-records records))
+  (label exit
+    db-status-success-if-notfound
+    (scm-from-status-dynwind-end-return result)))
 
 (define (db-guile-init) void
   "prepare scm values and register guile bindings"
@@ -757,4 +854,9 @@
     4 0 0 scm-db-record-update "db-txn db-type id list:((field-id . value) ...) -> unspecified")
   (scm-c-define-procedure-c "db-record-virtual" 2 0 0 scm-db-record-virtual "type data -> id")
   (scm-c-define-procedure-c
-    "db-record-virtual-data" 2 0 0 scm-db-record-virtual-data "db-env id -> any:data"))
+    "db-record-virtual-data" 2 0 0 scm-db-record-virtual-data "db-env id -> any:data")
+  (scm-c-define-procedure-c
+    "db-index-select"
+    3 0 0 scm-db-index-select "txn db-index list:((field-id . any:value) ...) -> db-selection")
+  (scm-c-define-procedure-c
+    "db-index-read" 2 0 0 scm-db-index-read "db-selection integer:count -> (integer:record-id ...)"))

@@ -12,18 +12,22 @@
     db-index-delete
     db-index-fields
     db-index-get
+    db-index-read
     db-index-rebuild
+    db-index-select
     db-open
     db-record->values
     db-record->vector
     db-record-create
     db-record-get
+    db-record-index-select
     db-record-read
     db-record-ref
     db-record-select
     db-record-update
     db-record-virtual
     db-record-virtual-data
+    db-record.index-read
     db-relation-ensure
     db-relation-field-names
     db-relation-label

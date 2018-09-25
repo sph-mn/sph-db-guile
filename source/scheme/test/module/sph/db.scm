@@ -173,13 +173,30 @@
                           (list (first id-and-values) (first (list-ref ids-and-values 2)))
                           (db-index-read (db-index-select txn index (tail id-and-values)) 5)))))))))))))
 
-  (define-procedure-tests tests (db-index-select)
-    (db-record-update) (db-record-create)
-    (db-record-select) (db-statistics)
-    (db-record-virtual) (db-other)
-    (db-relation-ensure) (db-relation-select) (db-type) (db-index) (db-env) (db-txn))
+  (define-test (db-record-index-select env)
+    (let (index-fields (list 0 4))
+      (test-helper-type-create-1 env
+        (l (type-name type-fields type)
+          (test-helper-records-create-2 2 env
+            type
+            (l (ids-and-values)
+              (let (index (db-index-create env type index-fields))
+                (db-txn-call-write env
+                  (l (txn)
+                    (let*
+                      ( (id-and-values (first ids-and-values))
+                        (records
+                          (map (l (a) (db-record->vector type a))
+                            (db-record-index-read
+                              (db-record-index-select txn index (tail id-and-values)) 5))))
+                      (and (not (null? records)) (every vector? records))))))))))))
 
-  ;record-update
+  (define-procedure-tests tests (db-record-index-select)
+    (db-index-select) (db-record-update)
+    (db-record-create) (db-record-select)
+    (db-statistics) (db-record-virtual)
+    (db-other) (db-relation-ensure) (db-relation-select) (db-type) (db-index) (db-env) (db-txn))
+
   ;record-delete
   ;relation-delete
 

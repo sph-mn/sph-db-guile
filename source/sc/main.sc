@@ -692,13 +692,13 @@
     index db-index-t)
   (scm-dynwind-begin 0)
   (set index (pointer-get (scm->db-index scm-index)))
-  (status-require
-    (db-helper-malloc (sizeof db-guile-record-index-selection-t) &selection:selection))
+  (status-require (db-helper-malloc (sizeof db-guile-record-index-selection-t) &selection))
   (scm-dynwind-unwind-handler free selection 0)
+  (sc-comment "this converts all given values even if some fields are not used")
   (status-require (scm-c->db-record-values index.type scm-values &values &allocations))
   (scm-dynwind-unwind-handler db-guile-memreg-heap-free &allocations SCM-F-WIND-EXPLICITLY)
-  (sc-comment "scm-values need not be gc protected as index-select copies necessary data")
-  (status-require
+  (sc-comment "scm-values need not be gc protected as record-index-select copies necessary data")
+  (status-require-read
     (db-record-index-select (pointer-get (scm->db-txn scm-txn)) index values &selection:selection))
   (scm-dynwind-unwind-handler
     (convert-type db-record-index-selection-finish (function-pointer void void*))
@@ -707,33 +707,31 @@
   (set
     selection:status-id status.id
     result (scm-from-db-selection selection))
+  db-status-success-if-notfound
   (label exit
     (scm-from-status-dynwind-end-return result)))
 
 (define (scm-db-record-index-read scm-selection scm-count) (SCM SCM SCM)
-  "allow multiple calls by tracking the record-select return status and
-  eventually not calling record-select again"
   status-declare
+  (db-records-declare records)
   (declare
-    records db-records-t
-    count db-count-t
-    result SCM
-    selection db-guile-record-selection-t*)
-  (set
-    result SCM-EOL
-    selection (convert-type (scm->db-selection scm-selection) db-guile-record-selection-t*))
-  (if (not (= status-id-success selection:status-id)) (return result))
-  (set count (scm->uintmax scm-count))
+    scm-records SCM
+    count size-t
+    selection db-guile-record-index-selection-t*)
   (scm-dynwind-begin 0)
+  (set
+    count (scm->size-t scm-count)
+    selection (scm->db-selection scm-selection))
+  (if (not (= status-id-success selection:status-id)) (return SCM-EOL))
   (status-require (db-records-new count &records))
-  (scm-dynwind-free records.start)
-  (status-require-read (db-record-read selection:selection count &records))
+  (status-require-read (db-record-index-read selection:selection count &records))
+  (scm-dynwind-unwind-handler free records.start SCM-F-WIND-EXPLICITLY)
   (set
     selection:status-id status.id
-    result (scm-from-db-records records))
+    scm-records (scm-from-db-records records))
+  db-status-success-if-notfound
   (label exit
-    db-status-success-if-notfound
-    (scm-from-status-dynwind-end-return result)))
+    (scm-from-status-dynwind-end-return scm-records)))
 
 (define (db-guile-init) void
   "prepare scm values and register guile bindings"
@@ -797,66 +795,87 @@
   (define m SCM (scm-c-resolve-module "sph db"))
   (scm-c-module-define m "db-type-flag-virtual" (scm-from-uint8 db-type-flag-virtual))
   (scm-c-define-procedure-c
-    "db-open" 1 1 0 scm-db-open "string:root [((key . value) ...):options] ->")
-  (scm-c-define-procedure-c "db-close" 1 0 0 scm-db-close "deinitialises the database handle")
-  (scm-c-define-procedure-c "db-env-open?" 1 0 0 scm-db-env-open? "")
-  (scm-c-define-procedure-c "db-env-maxkeysize" 1 0 0 scm-db-env-maxkeysize "")
-  (scm-c-define-procedure-c "db-env-root" 1 0 0 scm-db-env-root "")
-  (scm-c-define-procedure-c "db-env-format" 1 0 0 scm-db-env-format "")
-  (scm-c-define-procedure-c "db-statistics" 1 0 0 scm-db-statistics "")
-  (scm-c-define-procedure-c "db-txn-begin" 1 0 0 scm-db-txn-begin "-> db-txn")
-  (scm-c-define-procedure-c "db-txn-write-begin" 1 0 0 scm-db-txn-write-begin "-> db-txn")
-  (scm-c-define-procedure-c "db-txn-abort" 1 0 0 scm-db-txn-abort "db-txn -> unspecified")
-  (scm-c-define-procedure-c "db-txn-commit" 1 0 0 scm-db-txn-commit "db-txn -> unspecified")
-  (scm-c-define-procedure-c "db-txn-active?" 1 0 0 scm-db-txn-active? "db-txn -> boolean")
-  (scm-c-define-procedure-c "db-type-create" 3 1 0 scm-db-type-create "")
-  (scm-c-define-procedure-c "db-type-delete" 2 0 0 scm-db-type-delete "")
-  (scm-c-define-procedure-c "db-type-get" 2 0 0 scm-db-type-get "")
-  (scm-c-define-procedure-c "db-type-id" 1 0 0 scm-db-type-id "")
-  (scm-c-define-procedure-c "db-type-name" 1 0 0 scm-db-type-name "")
-  (scm-c-define-procedure-c "db-type-indices" 1 0 0 scm-db-type-indices "")
-  (scm-c-define-procedure-c "db-type-fields" 1 0 0 scm-db-type-fields "")
-  (scm-c-define-procedure-c "db-type-virtual?" 1 0 0 scm-db-type-virtual? "")
-  (scm-c-define-procedure-c "db-type-flags" 1 0 0 scm-db-type-flags "")
-  (scm-c-define-procedure-c "db-index-create" 3 0 0 scm-db-index-create "")
+    "db-open" 1 1 0 scm-db-open "string:root-path [((key . value) ...):options] -> env")
+  (scm-c-define-procedure-c
+    "db-close" 1 0 0 scm-db-close
+    "env -> unspecified
+    deinitialises the database handle")
+  (scm-c-define-procedure-c "db-env-open?" 1 0 0 scm-db-env-open? "env -> boolean")
+  (scm-c-define-procedure-c "db-env-maxkeysize" 1 0 0 scm-db-env-maxkeysize "env -> integer")
+  (scm-c-define-procedure-c "db-env-root" 1 0 0 scm-db-env-root "env -> string:root-path")
+  (scm-c-define-procedure-c "db-env-format" 1 0 0 scm-db-env-format "env -> integer:format-id")
+  (scm-c-define-procedure-c "db-statistics" 1 0 0 scm-db-statistics "env -> list")
+  (scm-c-define-procedure-c "db-txn-begin" 1 0 0 scm-db-txn-begin "env -> db-txn")
+  (scm-c-define-procedure-c "db-txn-write-begin" 1 0 0 scm-db-txn-write-begin "env -> db-txn")
+  (scm-c-define-procedure-c "db-txn-abort" 1 0 0 scm-db-txn-abort "txn -> unspecified")
+  (scm-c-define-procedure-c "db-txn-commit" 1 0 0 scm-db-txn-commit "txn -> unspecified")
+  (scm-c-define-procedure-c "db-txn-active?" 1 0 0 scm-db-txn-active? "txn -> boolean")
+  (scm-c-define-procedure-c
+    "db-type-create"
+    3
+    1
+    0
+    scm-db-type-create
+    "env string:name ((string:field-name . symbol:field-type) ...) [integer:flags] -> type")
+  (scm-c-define-procedure-c "db-type-delete" 2 0 0 scm-db-type-delete "env type -> unspecified")
+  (scm-c-define-procedure-c
+    "db-type-get" 2 0 0 scm-db-type-get "env integer/string:id/name -> false/type")
+  (scm-c-define-procedure-c "db-type-id" 1 0 0 scm-db-type-id "type -> integer:type-id")
+  (scm-c-define-procedure-c "db-type-name" 1 0 0 scm-db-type-name "type -> string")
+  (scm-c-define-procedure-c "db-type-indices" 1 0 0 scm-db-type-indices "type -> list")
+  (scm-c-define-procedure-c "db-type-fields" 1 0 0 scm-db-type-fields "type -> list")
+  (scm-c-define-procedure-c "db-type-virtual?" 1 0 0 scm-db-type-virtual? "type -> boolean")
+  (scm-c-define-procedure-c "db-type-flags" 1 0 0 scm-db-type-flags "type -> integer")
+  (scm-c-define-procedure-c
+    "db-index-create" 3 0 0 scm-db-index-create "env type (field-name-or-offset ...):fields -> index")
   (scm-c-define-procedure-c "db-index-delete" 2 0 0 scm-db-index-delete "env index -> unspecified")
   (scm-c-define-procedure-c
     "db-index-get" 3 0 0 scm-db-index-get "env type fields:(integer:offset ...) -> index")
   (scm-c-define-procedure-c
     "db-index-rebuild" 2 0 0 scm-db-index-rebuild "env index -> unspecified")
-  (scm-c-define-procedure-c "db-index-fields" 1 0 0 scm-db-index-fields "")
-  (scm-c-define-procedure-c "db-id-type" 1 0 0 scm-db-id-type "")
-  (scm-c-define-procedure-c "db-id-element" 1 0 0 scm-db-id-element "")
-  (scm-c-define-procedure-c "db-id-add-type" 2 0 0 scm-db-id-add-type "")
+  (scm-c-define-procedure-c "db-index-fields" 1 0 0 scm-db-index-fields "index -> list")
+  (scm-c-define-procedure-c "db-id-type" 1 0 0 scm-db-id-type "integer:id -> integer:type-id")
+  (scm-c-define-procedure-c "db-id-element" 1 0 0 scm-db-id-element "integer:id -> integer")
+  (scm-c-define-procedure-c
+    "db-id-add-type" 2 0 0 scm-db-id-add-type "integer:id integer:type-id -> integer:id")
   (scm-c-define-procedure-c
     "db-record-create"
-    3 0 0 scm-db-record-create "db-txn db-type list:((field-id . value) ...) -> integer")
+    3 0 0 scm-db-record-create "txn type list:((field-offset . value) ...) -> integer:id")
   (scm-c-define-procedure-c
     "db-relation-ensure"
     4
     2
     0
-    scm-db-relation-ensure "db-txn list:left list:right list:label [ordinal-generator ordinal-state]")
+    scm-db-relation-ensure
+    "txn list:left list:right list:label [ordinal-generator ordinal-state] -> unspecified")
   (scm-c-define-procedure-c
     "db-relation-select"
-    1 5 0 scm-db-relation-select "db-txn [list:left list:right list:label retrieve ordinal]")
-  (scm-c-define-procedure-c "db-relation-read" 2 0 0 scm-db-relation-read "selection integer:count")
+    1
+    5 0 scm-db-relation-select "txn [list:left list:right list:label retrieve ordinal] -> selection")
   (scm-c-define-procedure-c
-    "db-record-select" 2 2 0 scm-db-record-select "txn type [matcher matcher-state]")
-  (scm-c-define-procedure-c "db-record-read" 2 0 0 scm-db-record-read "selection integer:count")
-  (scm-c-define-procedure-c "db-record-ref" 3 0 0 scm-db-record-ref "type record field:integer")
+    "db-relation-read" 2 0 0 scm-db-relation-read "selection integer:count -> (vector ...)")
   (scm-c-define-procedure-c
-    "db-record-get" 2 0 0 scm-db-record-get "txn list:ids -> (db-record ...)")
+    "db-record-select" 2 2 0 scm-db-record-select "txn type [matcher matcher-state] -> selection")
   (scm-c-define-procedure-c
-    "db-record->vector" 2 0 0 scm-db-record->vector "type db-record -> vector:#(any:value ...)")
+    "db-record-read" 2 0 0 scm-db-record-read "selection integer:count -> (record ...)")
+  (scm-c-define-procedure-c
+    "db-record-ref" 3 0 0 scm-db-record-ref "type record integer:field-offset -> any:value")
+  (scm-c-define-procedure-c "db-record-get" 2 0 0 scm-db-record-get "txn list:ids -> (record ...)")
+  (scm-c-define-procedure-c
+    "db-record->vector" 2 0 0 scm-db-record->vector "type record -> vector:#(any:value ...)")
   (scm-c-define-procedure-c
     "db-record-update"
-    4 0 0 scm-db-record-update "db-txn db-type id list:((field-id . value) ...) -> unspecified")
+    4 0 0 scm-db-record-update "txn type id ((field-offset . value) ...) -> unspecified")
   (scm-c-define-procedure-c "db-record-virtual" 2 0 0 scm-db-record-virtual "type data -> id")
   (scm-c-define-procedure-c
-    "db-record-virtual-data" 2 0 0 scm-db-record-virtual-data "db-env id -> any:data")
+    "db-record-virtual-data" 2 0 0 scm-db-record-virtual-data "env id -> any:data")
   (scm-c-define-procedure-c
     "db-index-select"
-    3 0 0 scm-db-index-select "txn db-index list:((field-id . any:value) ...) -> db-selection")
+    3 0 0 scm-db-index-select "txn index ((field-offset . any:value) ...) -> selection")
   (scm-c-define-procedure-c
-    "db-index-read" 2 0 0 scm-db-index-read "db-selection integer:count -> (integer:record-id ...)"))
+    "db-index-read" 2 0 0 scm-db-index-read "selection integer:count -> (integer:id ...)")
+  (scm-c-define-procedure-c
+    "db-record-index-select"
+    3 0 0 scm-db-record-index-select "txn index ((field-offset . any:value) ...) -> selection")
+  (scm-c-define-procedure-c
+    "db-record-index-read" 2 0 0 scm-db-record-index-read "selection integer:count -> (record ...)"))

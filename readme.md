@@ -1,6 +1,6 @@
 guile scheme bindings for the database [sph-db](https://github.com/sph-mn/sph-db).
 
-2018-09: some things working. wip
+status: should work
 
 # dependencies
 * run-time
@@ -121,14 +121,14 @@ custom state values can be provided to the matcher as a single non-list argument
 ```
 
 ### via index
-only record ids
+only record ids, faster
 ```
 (define index (db-index-get type (list "field-1" "field-3")))
 (define selection (db-index-select txn index (q ((0 . 123) (1 . 45)))))
 (define ids (db-index-read selection 4))
 ```
 
-record objects - not yet implemented
+record objects
 ```
 (define selection (db-record-index-select txn index (q ((0 . 123) (1 . 45)))))
 (define records (db-record-index-read selection 4))
@@ -200,6 +200,67 @@ note: db-guile selections are bound to threads, the lmdb option MDB-NOTLS would 
 
 # error handling
 rnrs exceptions
+
+# api
+```
+db-close :: env -> unspecified
+db-env-format :: env -> integer:format-id
+db-env-maxkeysize :: env -> integer
+db-env-open? :: env -> boolean
+db-env-root :: env -> string:root-path
+db-id-add-type :: integer:id integer:type-id -> integer:id
+db-id-element :: integer:id -> integer
+db-id-type :: integer:id -> integer:type-id
+db-index-create :: env type (field-name-or-offset ...):fields -> index
+db-index-delete :: env index -> unspecified
+db-index-fields :: index -> list
+db-index-get :: env type fields:(integer:offset ...) -> index
+db-index-read :: selection integer:count -> (integer:id ...)
+db-index-rebuild :: env index -> unspecified
+db-index-select :: txn index ((field-offset . any:value) ...) -> selection
+db-open :: string:root-path [((key . value) ...):options] -> env
+db-record->values :: db-type db-record -> list:((field-offset . value) ...)
+db-record->vector :: type record -> vector:#(any:value ...)
+db-record-create :: txn type list:((field-offset . value) ...) -> integer:id
+db-record-get :: txn list:ids -> (record ...)
+db-record-index-read :: selection integer:count -> (record ...)
+db-record-index-select :: txn index ((field-offset . any:value) ...) -> selection
+db-record-read :: selection integer:count -> (record ...)
+db-record-ref :: type record integer:field-offset -> any:value
+db-record-select :: txn type [matcher matcher-state] -> selection
+db-record-update :: txn type id ((field-offset . value) ...) -> unspecified
+db-record-virtual :: type data -> id
+db-record-virtual-data :: env id -> any:data
+db-relation-ensure :: txn list:left list:right list:label [ordinal-generator ordinal-state] -> unspecified
+db-relation-field-names
+db-relation-label :: record ->
+db-relation-layout
+db-relation-left :: record ->
+db-relation-ordinal :: record ->
+db-relation-read :: selection integer:count -> (vector ...)
+db-relation-right :: record ->
+db-relation-select :: txn [list:left list:right list:label retrieve ordinal] -> selection
+db-statistics :: env -> list
+db-txn-abort :: txn -> unspecified
+db-txn-active? :: txn -> boolean
+db-txn-begin :: env -> db-txn
+db-txn-call-read :: db-env procedure:{db-txn -> any:result} -> any:result
+db-txn-call-write :: db-env procedure:{db-txn -> any:result} -> any:result
+db-txn-commit :: txn -> unspecified
+db-txn-write-begin :: env -> db-txn
+db-type-create :: env string:name ((string:field-name . symbol:field-type) ...) [integer:flags] -> type
+db-type-delete :: env type -> unspecified
+db-type-fields :: type -> list
+db-type-flag-virtual
+db-type-flags :: type -> integer
+db-type-get :: env integer/string:id/name -> false/type
+db-type-id :: type -> integer:type-id
+db-type-indices :: type -> list
+db-type-name :: type -> string
+db-type-virtual? :: type -> boolean
+db-use :: root options c
+db-use-p :: string ((key . value) ...) procedure:{db-env -> any} -> any
+```
 
 # internals
 the main extensions of this binding are:

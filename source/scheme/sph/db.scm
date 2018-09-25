@@ -20,6 +20,7 @@
     db-record->vector
     db-record-create
     db-record-get
+    db-record-index-read
     db-record-index-select
     db-record-read
     db-record-ref

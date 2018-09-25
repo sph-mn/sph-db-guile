@@ -758,15 +758,16 @@ SCM scm_db_record_index_select(SCM scm_txn, SCM scm_index, SCM scm_values) {
   scm_dynwind_begin(0);
   index = *(scm_to_db_index(scm_index));
   status_require((db_helper_malloc(
-    (sizeof(db_guile_record_index_selection_t)), (&(selection->selection)))));
+    (sizeof(db_guile_record_index_selection_t)), (&selection))));
   scm_dynwind_unwind_handler(free, selection, 0);
+  /* this converts all given values even if some fields are not used */
   status_require((scm_c_to_db_record_values(
     (index.type), scm_values, (&values), (&allocations))));
   scm_dynwind_unwind_handler(
     db_guile_memreg_heap_free, (&allocations), SCM_F_WIND_EXPLICITLY);
-  /* scm-values need not be gc protected as index-select copies necessary data
-   */
-  status_require((db_record_index_select(
+  /* scm-values need not be gc protected as record-index-select copies necessary
+   * data */
+  status_require_read((db_record_index_select(
     (*(scm_to_db_txn(scm_txn))), index, values, (&(selection->selection)))));
   scm_dynwind_unwind_handler(
     ((void (*)(void*))(db_record_index_selection_finish)),
@@ -775,34 +776,31 @@ SCM scm_db_record_index_select(SCM scm_txn, SCM scm_index, SCM scm_values) {
   db_guile_selection_register(selection, db_guile_selection_type_record_index);
   selection->status_id = status.id;
   result = scm_from_db_selection(selection);
+  db_status_success_if_notfound;
 exit:
   scm_from_status_dynwind_end_return(result);
 };
-/** allow multiple calls by tracking the record-select return status and
-  eventually not calling record-select again */
 SCM scm_db_record_index_read(SCM scm_selection, SCM scm_count) {
   status_declare;
-  db_records_t records;
-  db_count_t count;
-  SCM result;
-  db_guile_record_selection_t* selection;
-  result = SCM_EOL;
-  selection =
-    ((db_guile_record_selection_t*)(scm_to_db_selection(scm_selection)));
-  if (!(status_id_success == selection->status_id)) {
-    return (result);
-  };
-  count = scm_to_uintmax(scm_count);
+  db_records_declare(records);
+  SCM scm_records;
+  size_t count;
+  db_guile_record_index_selection_t* selection;
   scm_dynwind_begin(0);
+  count = scm_to_size_t(scm_count);
+  selection = scm_to_db_selection(scm_selection);
+  if (!(status_id_success == selection->status_id)) {
+    return (SCM_EOL);
+  };
   status_require((db_records_new(count, (&records))));
-  scm_dynwind_free((records.start));
   status_require_read(
-    (db_record_read((selection->selection), count, (&records))));
+    (db_record_index_read((selection->selection), count, (&records))));
+  scm_dynwind_unwind_handler(free, (records.start), SCM_F_WIND_EXPLICITLY);
   selection->status_id = status.id;
-  result = scm_from_db_records(records);
-exit:
+  scm_records = scm_from_db_records(records);
   db_status_success_if_notfound;
-  scm_from_status_dynwind_end_return(result);
+exit:
+  scm_from_status_dynwind_end_return(scm_records);
 };
 /** prepare scm values and register guile bindings */
 void db_guile_init() {
@@ -873,36 +871,66 @@ void db_guile_init() {
     1,
     0,
     scm_db_open,
-    ("string:root [((key . value) ...):options] ->"));
+    ("string:root-path [((key . value) ...):options] -> env"));
+  scm_c_define_procedure_c("db-close",
+    1,
+    0,
+    0,
+    scm_db_close,
+    ("env -> unspecified\n    deinitialises the database handle"));
   scm_c_define_procedure_c(
-    "db-close", 1, 0, 0, scm_db_close, "deinitialises the database handle");
-  scm_c_define_procedure_c("db-env-open?", 1, 0, 0, scm_db_env_open_p, "");
+    "db-env-open?", 1, 0, 0, scm_db_env_open_p, ("env -> boolean"));
   scm_c_define_procedure_c(
-    "db-env-maxkeysize", 1, 0, 0, scm_db_env_maxkeysize, "");
-  scm_c_define_procedure_c("db-env-root", 1, 0, 0, scm_db_env_root, "");
-  scm_c_define_procedure_c("db-env-format", 1, 0, 0, scm_db_env_format, "");
-  scm_c_define_procedure_c("db-statistics", 1, 0, 0, scm_db_statistics, "");
+    "db-env-maxkeysize", 1, 0, 0, scm_db_env_maxkeysize, ("env -> integer"));
   scm_c_define_procedure_c(
-    "db-txn-begin", 1, 0, 0, scm_db_txn_begin, ("-> db-txn"));
+    "db-env-root", 1, 0, 0, scm_db_env_root, ("env -> string:root-path"));
   scm_c_define_procedure_c(
-    "db-txn-write-begin", 1, 0, 0, scm_db_txn_write_begin, ("-> db-txn"));
+    "db-env-format", 1, 0, 0, scm_db_env_format, ("env -> integer:format-id"));
   scm_c_define_procedure_c(
-    "db-txn-abort", 1, 0, 0, scm_db_txn_abort, ("db-txn -> unspecified"));
+    "db-statistics", 1, 0, 0, scm_db_statistics, ("env -> list"));
   scm_c_define_procedure_c(
-    "db-txn-commit", 1, 0, 0, scm_db_txn_commit, ("db-txn -> unspecified"));
+    "db-txn-begin", 1, 0, 0, scm_db_txn_begin, ("env -> db-txn"));
   scm_c_define_procedure_c(
-    "db-txn-active?", 1, 0, 0, scm_db_txn_active_p, ("db-txn -> boolean"));
-  scm_c_define_procedure_c("db-type-create", 3, 1, 0, scm_db_type_create, "");
-  scm_c_define_procedure_c("db-type-delete", 2, 0, 0, scm_db_type_delete, "");
-  scm_c_define_procedure_c("db-type-get", 2, 0, 0, scm_db_type_get, "");
-  scm_c_define_procedure_c("db-type-id", 1, 0, 0, scm_db_type_id, "");
-  scm_c_define_procedure_c("db-type-name", 1, 0, 0, scm_db_type_name, "");
-  scm_c_define_procedure_c("db-type-indices", 1, 0, 0, scm_db_type_indices, "");
-  scm_c_define_procedure_c("db-type-fields", 1, 0, 0, scm_db_type_fields, "");
+    "db-txn-write-begin", 1, 0, 0, scm_db_txn_write_begin, ("env -> db-txn"));
   scm_c_define_procedure_c(
-    "db-type-virtual?", 1, 0, 0, scm_db_type_virtual_p, "");
-  scm_c_define_procedure_c("db-type-flags", 1, 0, 0, scm_db_type_flags, "");
-  scm_c_define_procedure_c("db-index-create", 3, 0, 0, scm_db_index_create, "");
+    "db-txn-abort", 1, 0, 0, scm_db_txn_abort, ("txn -> unspecified"));
+  scm_c_define_procedure_c(
+    "db-txn-commit", 1, 0, 0, scm_db_txn_commit, ("txn -> unspecified"));
+  scm_c_define_procedure_c(
+    "db-txn-active?", 1, 0, 0, scm_db_txn_active_p, ("txn -> boolean"));
+  scm_c_define_procedure_c("db-type-create",
+    3,
+    1,
+    0,
+    scm_db_type_create,
+    ("env string:name ((string:field-name . symbol:field-type) ...) "
+     "[integer:flags] -> type"));
+  scm_c_define_procedure_c(
+    "db-type-delete", 2, 0, 0, scm_db_type_delete, ("env type -> unspecified"));
+  scm_c_define_procedure_c("db-type-get",
+    2,
+    0,
+    0,
+    scm_db_type_get,
+    ("env integer/string:id/name -> false/type"));
+  scm_c_define_procedure_c(
+    "db-type-id", 1, 0, 0, scm_db_type_id, ("type -> integer:type-id"));
+  scm_c_define_procedure_c(
+    "db-type-name", 1, 0, 0, scm_db_type_name, ("type -> string"));
+  scm_c_define_procedure_c(
+    "db-type-indices", 1, 0, 0, scm_db_type_indices, ("type -> list"));
+  scm_c_define_procedure_c(
+    "db-type-fields", 1, 0, 0, scm_db_type_fields, ("type -> list"));
+  scm_c_define_procedure_c(
+    "db-type-virtual?", 1, 0, 0, scm_db_type_virtual_p, ("type -> boolean"));
+  scm_c_define_procedure_c(
+    "db-type-flags", 1, 0, 0, scm_db_type_flags, ("type -> integer"));
+  scm_c_define_procedure_c("db-index-create",
+    3,
+    0,
+    0,
+    scm_db_index_create,
+    ("env type (field-name-or-offset ...):fields -> index"));
   scm_c_define_procedure_c("db-index-delete",
     2,
     0,
@@ -921,63 +949,79 @@ void db_guile_init() {
     0,
     scm_db_index_rebuild,
     ("env index -> unspecified"));
-  scm_c_define_procedure_c("db-index-fields", 1, 0, 0, scm_db_index_fields, "");
-  scm_c_define_procedure_c("db-id-type", 1, 0, 0, scm_db_id_type, "");
-  scm_c_define_procedure_c("db-id-element", 1, 0, 0, scm_db_id_element, "");
-  scm_c_define_procedure_c("db-id-add-type", 2, 0, 0, scm_db_id_add_type, "");
+  scm_c_define_procedure_c(
+    "db-index-fields", 1, 0, 0, scm_db_index_fields, ("index -> list"));
+  scm_c_define_procedure_c(
+    "db-id-type", 1, 0, 0, scm_db_id_type, ("integer:id -> integer:type-id"));
+  scm_c_define_procedure_c(
+    "db-id-element", 1, 0, 0, scm_db_id_element, ("integer:id -> integer"));
+  scm_c_define_procedure_c("db-id-add-type",
+    2,
+    0,
+    0,
+    scm_db_id_add_type,
+    ("integer:id integer:type-id -> integer:id"));
   scm_c_define_procedure_c("db-record-create",
     3,
     0,
     0,
     scm_db_record_create,
-    ("db-txn db-type list:((field-id . value) ...) -> integer"));
+    ("txn type list:((field-offset . value) ...) -> integer:id"));
   scm_c_define_procedure_c("db-relation-ensure",
     4,
     2,
     0,
     scm_db_relation_ensure,
-    ("db-txn list:left list:right list:label [ordinal-generator "
-     "ordinal-state]"));
+    ("txn list:left list:right list:label [ordinal-generator ordinal-state] -> "
+     "unspecified"));
   scm_c_define_procedure_c("db-relation-select",
     1,
     5,
     0,
     scm_db_relation_select,
-    ("db-txn [list:left list:right list:label retrieve ordinal]"));
+    ("txn [list:left list:right list:label retrieve ordinal] -> selection"));
   scm_c_define_procedure_c("db-relation-read",
     2,
     0,
     0,
     scm_db_relation_read,
-    "selection integer:count");
+    ("selection integer:count -> (vector ...)"));
   scm_c_define_procedure_c("db-record-select",
     2,
     2,
     0,
     scm_db_record_select,
-    ("txn type [matcher matcher-state]"));
-  scm_c_define_procedure_c(
-    "db-record-read", 2, 0, 0, scm_db_record_read, "selection integer:count");
-  scm_c_define_procedure_c(
-    "db-record-ref", 3, 0, 0, scm_db_record_ref, "type record field:integer");
+    ("txn type [matcher matcher-state] -> selection"));
+  scm_c_define_procedure_c("db-record-read",
+    2,
+    0,
+    0,
+    scm_db_record_read,
+    ("selection integer:count -> (record ...)"));
+  scm_c_define_procedure_c("db-record-ref",
+    3,
+    0,
+    0,
+    scm_db_record_ref,
+    ("type record integer:field-offset -> any:value"));
   scm_c_define_procedure_c("db-record-get",
     2,
     0,
     0,
     scm_db_record_get,
-    ("txn list:ids -> (db-record ...)"));
+    ("txn list:ids -> (record ...)"));
   scm_c_define_procedure_c(("db-record->vector"),
     2,
     0,
     0,
     scm_db_record_to_vector,
-    ("type db-record -> vector:#(any:value ...)"));
+    ("type record -> vector:#(any:value ...)"));
   scm_c_define_procedure_c("db-record-update",
     4,
     0,
     0,
     scm_db_record_update,
-    ("db-txn db-type id list:((field-id . value) ...) -> unspecified"));
+    ("txn type id ((field-offset . value) ...) -> unspecified"));
   scm_c_define_procedure_c(
     "db-record-virtual", 2, 0, 0, scm_db_record_virtual, ("type data -> id"));
   scm_c_define_procedure_c("db-record-virtual-data",
@@ -985,17 +1029,29 @@ void db_guile_init() {
     0,
     0,
     scm_db_record_virtual_data,
-    ("db-env id -> any:data"));
+    ("env id -> any:data"));
   scm_c_define_procedure_c("db-index-select",
     3,
     0,
     0,
     scm_db_index_select,
-    ("txn db-index list:((field-id . any:value) ...) -> db-selection"));
+    ("txn index ((field-offset . any:value) ...) -> selection"));
   scm_c_define_procedure_c("db-index-read",
     2,
     0,
     0,
     scm_db_index_read,
-    ("db-selection integer:count -> (integer:record-id ...)"));
+    ("selection integer:count -> (integer:id ...)"));
+  scm_c_define_procedure_c("db-record-index-select",
+    3,
+    0,
+    0,
+    scm_db_record_index_select,
+    ("txn index ((field-offset . any:value) ...) -> selection"));
+  scm_c_define_procedure_c("db-record-index-read",
+    2,
+    0,
+    0,
+    scm_db_record_index_read,
+    ("selection integer:count -> (record ...)"));
 };

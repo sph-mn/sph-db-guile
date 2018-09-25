@@ -1,0 +1,2 @@
+#!/bin/sh
+scm-list-documentation "sph db"

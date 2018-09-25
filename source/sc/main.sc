@@ -345,23 +345,56 @@
 (define (scm-db-id-add-type a type) (SCM SCM SCM)
   (scm-from-uintmax (db-id-add-type (scm->uintmax a) (scm->uintmax type))))
 
-(define (scm-db-record-get scm-txn scm-ids) (SCM SCM SCM)
+(define (scm-db-record-get scm-txn scm-ids scm-match-all) (SCM SCM SCM SCM)
   status-declare
   (declare
     ids db-ids-t
     records db-records-t
     result SCM
+    match-all boolean
     txn db-txn-t)
-  (set txn (pointer-get (scm->db-txn scm-txn)))
+  (set
+    txn (pointer-get (scm->db-txn scm-txn))
+    match-all
+    (if* (scm-is-undefined scm-match-all) #f
+      (scm->bool scm-match-all)))
   (scm-dynwind-begin 0)
   (status-require (scm->db-ids scm-ids &ids))
   (scm-dynwind-free ids.start)
   (status-require (db-records-new (db-ids-length ids) &records))
   (scm-dynwind-free records.start)
-  (status-require (db-record-get txn ids &records))
-  (set result (scm-from-db-records records))
+  (status-require-read (db-record-get txn ids match-all &records))
+  (set result
+    (if* (= db-status-id-notfound status.id) SCM-EOL
+      (scm-from-db-records records)))
   (label exit
     (scm-from-status-dynwind-end-return result)))
+
+(define (scm->db-ordinal scm-a result-ordinal)
+  (db-ordinal-condition-t* SCM db-ordinal-condition-t*)
+  "modifies result-ordinal.
+  returns ordinal pointer on success, null pointer on failure"
+  (declare
+    scm-ordinal-max SCM
+    scm-ordinal-min SCM)
+  (cond
+    ( (scm-is-true (scm-list? scm-a))
+      (set
+        scm-ordinal-min (scm-assoc-ref scm-a scm-symbol-min)
+        scm-ordinal-max (scm-assoc-ref scm-a scm-symbol-max)
+        (struct-get *result-ordinal min)
+        (if* (scm-is-integer scm-ordinal-min) (scm->uintmax scm-ordinal-min)
+          0)
+        (struct-get *result-ordinal max)
+        (if* (scm-is-integer scm-ordinal-max) (scm->uintmax scm-ordinal-max)
+          0))
+      (return result-ordinal))
+    ( (scm-is-integer scm-a)
+      (set
+        (struct-get *result-ordinal min) (scm->uintmax scm-a)
+        (struct-get *result-ordinal max) (struct-get *result-ordinal min))
+      (return result-ordinal))
+    (else (return 0))))
 
 (define (scm-db-relation-select scm-txn scm-left scm-right scm-label scm-retrieve scm-ordinal)
   (SCM SCM SCM SCM SCM SCM SCM)
@@ -377,8 +410,6 @@
     right db-ids-t
     right-pointer db-ids-t*
     scm-from-relations (function-pointer SCM db-relations-t)
-    scm-ordinal-max SCM
-    scm-ordinal-min SCM
     scm-selection SCM
     selection db-guile-relation-selection-t*)
   (memreg-init 5)
@@ -409,24 +440,7 @@
       (set label-pointer &label))
     (set label-pointer 0))
   (sc-comment "ordinal")
-  (cond
-    ( (scm-is-true (scm-list? scm-ordinal))
-      (set
-        scm-ordinal-min (scm-assoc-ref scm-ordinal scm-symbol-min)
-        scm-ordinal-max (scm-assoc-ref scm-ordinal scm-symbol-max)
-        ordinal.min
-        (if* (scm-is-integer scm-ordinal-min) (scm->uintmax scm-ordinal-min)
-          0)
-        ordinal.max
-        (if* (scm-is-integer scm-ordinal-max) (scm->uintmax scm-ordinal-max)
-          0)
-        ordinal-pointer &ordinal))
-    ( (scm-is-integer scm-ordinal)
-      (set
-        ordinal.min (scm->uintmax scm-ordinal)
-        ordinal.max ordinal.min
-        ordinal-pointer &ordinal))
-    (else (set ordinal-pointer 0)))
+  (set ordinal-pointer (scm->db-ordinal scm-ordinal &ordinal))
   (sc-comment "retrieve")
   (if (scm-is-symbol scm-retrieve)
     (case scm-is-eq scm-retrieve
@@ -733,6 +747,61 @@
   (label exit
     (scm-from-status-dynwind-end-return scm-records)))
 
+(define (scm-db-record-delete scm-txn scm-ids) (SCM SCM SCM)
+  status-declare
+  (db-ids-declare ids)
+  (scm-dynwind-begin 0)
+  (status-require (scm->db-ids scm-ids &ids))
+  (scm-dynwind-free ids.start)
+  (status-require (db-record-delete (pointer-get (scm->db-txn scm-txn)) ids))
+  (label exit
+    (scm-from-status-dynwind-end-return SCM-UNSPECIFIED)))
+
+(define (scm-db-record-delete-type scm-txn scm-type-id) (SCM SCM SCM)
+  status-declare
+  (status-require
+    (db-record-delete-type (pointer-get (scm->db-txn scm-txn)) (scm->uintmax scm-type-id)))
+  (label exit
+    (scm-from-status-return SCM-UNSPECIFIED)))
+
+(define (scm-db-relation-delete scm-txn scm-left scm-right scm-label scm-ordinal)
+  (SCM SCM SCM SCM SCM SCM)
+  status-declare
+  (db-ids-declare left)
+  (db-ids-declare right)
+  (db-ids-declare label)
+  (declare
+    left-pointer db-ids-t*
+    right-pointer db-ids-t*
+    label-pointer db-ids-t*
+    ordinal db-ordinal-condition-t
+    ordinal-pointer db-ordinal-condition-t*)
+  (scm-dynwind-begin 0)
+  (if (scm-is-pair scm-left)
+    (begin
+      (status-require (scm->db-ids scm-left &left))
+      (scm-dynwind-free left.start)
+      (set left-pointer &left))
+    (set left-pointer 0))
+  (if (scm-is-pair scm-right)
+    (begin
+      (status-require (scm->db-ids scm-right &right))
+      (scm-dynwind-free right.start)
+      (set right-pointer &right))
+    (set right-pointer 0))
+  (if (scm-is-pair scm-label)
+    (begin
+      (status-require (scm->db-ids scm-label &label))
+      (scm-dynwind-free label.start)
+      (set label-pointer &label))
+    (set label-pointer 0))
+  (set ordinal-pointer (scm->db-ordinal scm-ordinal &ordinal))
+  (status-require
+    (db-relation-delete
+      (pointer-get (scm->db-txn scm-txn)) left-pointer right-pointer label-pointer ordinal-pointer))
+  (label exit
+    (scm-from-status-dynwind-end-return SCM-UNSPECIFIED)))
+
 (define (db-guile-init) void
   "prepare scm values and register guile bindings"
   (declare
@@ -822,8 +891,13 @@
     "db-type-get" 2 0 0 scm-db-type-get "env integer/string:id/name -> false/type")
   (scm-c-define-procedure-c "db-type-id" 1 0 0 scm-db-type-id "type -> integer:type-id")
   (scm-c-define-procedure-c "db-type-name" 1 0 0 scm-db-type-name "type -> string")
-  (scm-c-define-procedure-c "db-type-indices" 1 0 0 scm-db-type-indices "type -> list")
-  (scm-c-define-procedure-c "db-type-fields" 1 0 0 scm-db-type-fields "type -> list")
+  (scm-c-define-procedure-c
+    "db-type-indices"
+    1
+    0
+    0 scm-db-type-indices "type -> (index-info:((integer:field-offset . string:field-name) ...) ...)")
+  (scm-c-define-procedure-c
+    "db-type-fields" 1 0 0 scm-db-type-fields "type -> ((string:field-name . symbol:field-type) ...)")
   (scm-c-define-procedure-c "db-type-virtual?" 1 0 0 scm-db-type-virtual? "type -> boolean")
   (scm-c-define-procedure-c "db-type-flags" 1 0 0 scm-db-type-flags "type -> integer")
   (scm-c-define-procedure-c
@@ -860,7 +934,8 @@
     "db-record-read" 2 0 0 scm-db-record-read "selection integer:count -> (record ...)")
   (scm-c-define-procedure-c
     "db-record-ref" 3 0 0 scm-db-record-ref "type record integer:field-offset -> any:value")
-  (scm-c-define-procedure-c "db-record-get" 2 0 0 scm-db-record-get "txn list:ids -> (record ...)")
+  (scm-c-define-procedure-c
+    "db-record-get" 2 1 0 scm-db-record-get "txn list:ids [boolean:match-all] -> (record ...)")
   (scm-c-define-procedure-c
     "db-record->vector" 2 0 0 scm-db-record->vector "type record -> vector:#(any:value ...)")
   (scm-c-define-procedure-c
@@ -878,4 +953,15 @@
     "db-record-index-select"
     3 0 0 scm-db-record-index-select "txn index ((field-offset . any:value) ...) -> selection")
   (scm-c-define-procedure-c
-    "db-record-index-read" 2 0 0 scm-db-record-index-read "selection integer:count -> (record ...)"))
+    "db-record-index-read" 2 0 0 scm-db-record-index-read "selection integer:count -> (record ...)")
+  (scm-c-define-procedure-c
+    "db-record-delete" 2 0 0 scm-db-record-delete "txn (integer ...):ids -> unspecified")
+  (scm-c-define-procedure-c
+    "db-record-delete-type" 2 0 0 scm-db-record-delete-type "txn integer:type-id -> unspecified")
+  (scm-c-define-procedure-c
+    "db-relation-delete"
+    1
+    4
+    0
+    scm-db-relation-delete
+    "txn [list:left:ids list:right:ids list:label:ids integer/list:minmax/(min max):ordinal] -> unspecified"))

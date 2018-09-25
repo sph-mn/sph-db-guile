@@ -222,7 +222,9 @@ db-open :: string:root-path [((key . value) ...):options] -> env
 db-record->values :: db-type db-record -> list:((field-offset . value) ...)
 db-record->vector :: type record -> vector:#(any:value ...)
 db-record-create :: txn type list:((field-offset . value) ...) -> integer:id
-db-record-get :: txn list:ids -> (record ...)
+db-record-delete :: txn (integer ...):ids -> unspecified
+db-record-delete-type :: txn integer:type-id -> unspecified
+db-record-get :: txn list:ids [boolean:match-all] -> (record ...)
 db-record-index-read :: selection integer:count -> (record ...)
 db-record-index-select :: txn index ((field-offset . any:value) ...) -> selection
 db-record-read :: selection integer:count -> (record ...)
@@ -231,6 +233,7 @@ db-record-select :: txn type [matcher matcher-state] -> selection
 db-record-update :: txn type id ((field-offset . value) ...) -> unspecified
 db-record-virtual :: type data -> id
 db-record-virtual-data :: env id -> any:data
+db-relation-delete :: txn [list:left:ids list:right:ids list:label:ids integer/list:minmax/(min max):ordinal] -> unspecified
 db-relation-ensure :: txn list:left list:right list:label [ordinal-generator ordinal-state] -> unspecified
 db-relation-field-names
 db-relation-label :: record ->
@@ -250,12 +253,12 @@ db-txn-commit :: txn -> unspecified
 db-txn-write-begin :: env -> db-txn
 db-type-create :: env string:name ((string:field-name . symbol:field-type) ...) [integer:flags] -> type
 db-type-delete :: env type -> unspecified
-db-type-fields :: type -> list
+db-type-fields :: type -> ((string:field-name . symbol:field-type) ...)
 db-type-flag-virtual
 db-type-flags :: type -> integer
 db-type-get :: env integer/string:id/name -> false/type
 db-type-id :: type -> integer:type-id
-db-type-indices :: type -> list
+db-type-indices :: type -> (index-info:((integer:field-offset . string:field-name) ...) ...)
 db-type-name :: type -> string
 db-type-virtual? :: type -> boolean
 db-use :: root options c

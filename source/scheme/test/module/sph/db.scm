@@ -50,7 +50,7 @@
         (let ((left (list 1 2 3)) (right (list 4 5)) (label (list 7)))
           (db-relation-ensure txn left right label (l (a) (list a (+ 1 a))) 2)))))
 
-  (define common-element-count 1)
+  (define common-element-count 100)
 
   (define-test (db-record-create env)
     (test-helper-type-create-1 env
@@ -191,14 +191,56 @@
                               (db-record-index-select txn index (tail id-and-values)) 5))))
                       (and (not (null? records)) (every vector? records))))))))))))
 
-  (define-procedure-tests tests (db-record-index-select)
+  (define-test (db-record-delete env) "and db-record-delete-type"
+    (let (index-fields (list 0 4))
+      (test-helper-type-create-1 env
+        (l (type-name type-fields type)
+          (assert-and
+            (assert-true "record-delete"
+              (test-helper-records-create-2 common-element-count env
+                type
+                (l (ids-and-values)
+                  (let
+                    ( (ids (map first ids-and-values))
+                      (index (db-index-create env type index-fields)))
+                    (db-txn-call-write env
+                      (l (txn)
+                        (and (not (null? (db-record-get txn ids)))
+                          (begin (db-record-delete txn ids) (null? (db-record-get txn ids))
+                            (begin
+                              ; call without records
+                              (db-record-delete-type txn (db-type-id type)) #t)))))))))
+            (assert-true "record-delete-type"
+              (test-helper-records-create-2 common-element-count env
+                type
+                (l (ids-and-values)
+                  (let (ids (map first ids-and-values))
+                    (db-txn-call-write env
+                      (l (txn)
+                        (and (not (null? (db-record-get txn ids)))
+                          (begin (db-record-delete-type txn (db-type-id type))
+                            (null? (db-record-get txn ids)))))))))))))))
+
+  (define-test (db-relation-delete env)
+    (test-helper-relations-create-1 env
+      (l (left right label)
+        (let* ((count (apply + (map length (list left right label)))) (ordinal (list 0 count)))
+          (db-txn-call-write env
+            (l (txn)
+              (and
+                (not
+                  (null?
+                    (db-relation-read (db-relation-select txn left right label ordinal) (* 2 count))))
+                (begin (db-relation-delete txn left right label ordinal)
+                  (null?
+                    (db-relation-read (db-relation-select txn left right label ordinal) (* 2 count)))))))))))
+
+  (define-procedure-tests tests (db-relation-delete)
+    (db-record-delete) (db-record-index-select)
     (db-index-select) (db-record-update)
     (db-record-create) (db-record-select)
     (db-statistics) (db-record-virtual)
     (db-other) (db-relation-ensure) (db-relation-select) (db-type) (db-index) (db-env) (db-txn))
-
-  ;record-delete
-  ;relation-delete
 
   (l (settings)
     (let* ((test-runs 1) (settings (test-helper-db-default-test-settings settings)))

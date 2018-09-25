@@ -386,22 +386,49 @@ SCM scm_db_id_add_type(SCM a, SCM type) {
   scm_from_uintmax(
     (db_id_add_type((scm_to_uintmax(a)), (scm_to_uintmax(type)))));
 };
-SCM scm_db_record_get(SCM scm_txn, SCM scm_ids) {
+SCM scm_db_record_get(SCM scm_txn, SCM scm_ids, SCM scm_match_all) {
   status_declare;
   db_ids_t ids;
   db_records_t records;
   SCM result;
+  boolean match_all;
   db_txn_t txn;
   txn = *(scm_to_db_txn(scm_txn));
+  match_all =
+    (scm_is_undefined(scm_match_all) ? 0 : scm_to_bool(scm_match_all));
   scm_dynwind_begin(0);
   status_require((scm_to_db_ids(scm_ids, (&ids))));
   scm_dynwind_free((ids.start));
   status_require((db_records_new((db_ids_length(ids)), (&records))));
   scm_dynwind_free((records.start));
-  status_require((db_record_get(txn, ids, (&records))));
-  result = scm_from_db_records(records);
+  status_require_read((db_record_get(txn, ids, match_all, (&records))));
+  result =
+    ((db_status_id_notfound == status.id) ? SCM_EOL
+                                          : scm_from_db_records(records));
 exit:
   scm_from_status_dynwind_end_return(result);
+};
+/** modifies result-ordinal.
+  returns ordinal pointer on success, null pointer on failure */
+db_ordinal_condition_t*
+scm_to_db_ordinal(SCM scm_a, db_ordinal_condition_t* result_ordinal) {
+  SCM scm_ordinal_max;
+  SCM scm_ordinal_min;
+  if (scm_is_true((scm_list_p(scm_a)))) {
+    scm_ordinal_min = scm_assoc_ref(scm_a, scm_symbol_min);
+    scm_ordinal_max = scm_assoc_ref(scm_a, scm_symbol_max);
+    (*result_ordinal).min =
+      (scm_is_integer(scm_ordinal_min) ? scm_to_uintmax(scm_ordinal_min) : 0);
+    (*result_ordinal).max =
+      (scm_is_integer(scm_ordinal_max) ? scm_to_uintmax(scm_ordinal_max) : 0);
+    return (result_ordinal);
+  } else if (scm_is_integer(scm_a)) {
+    (*result_ordinal).min = scm_to_uintmax(scm_a);
+    (*result_ordinal).max = (*result_ordinal).min;
+    return (result_ordinal);
+  } else {
+    return (0);
+  };
 };
 SCM scm_db_relation_select(SCM scm_txn,
   SCM scm_left,
@@ -420,8 +447,6 @@ SCM scm_db_relation_select(SCM scm_txn,
   db_ids_t right;
   db_ids_t* right_pointer;
   SCM (*scm_from_relations)(db_relations_t);
-  SCM scm_ordinal_max;
-  SCM scm_ordinal_min;
   SCM scm_selection;
   db_guile_relation_selection_t* selection;
   memreg_init(5);
@@ -457,21 +482,7 @@ SCM scm_db_relation_select(SCM scm_txn,
     label_pointer = 0;
   };
   /* ordinal */
-  if (scm_is_true((scm_list_p(scm_ordinal)))) {
-    scm_ordinal_min = scm_assoc_ref(scm_ordinal, scm_symbol_min);
-    scm_ordinal_max = scm_assoc_ref(scm_ordinal, scm_symbol_max);
-    ordinal.min =
-      (scm_is_integer(scm_ordinal_min) ? scm_to_uintmax(scm_ordinal_min) : 0);
-    ordinal.max =
-      (scm_is_integer(scm_ordinal_max) ? scm_to_uintmax(scm_ordinal_max) : 0);
-    ordinal_pointer = &ordinal;
-  } else if (scm_is_integer(scm_ordinal)) {
-    ordinal.min = scm_to_uintmax(scm_ordinal);
-    ordinal.max = ordinal.min;
-    ordinal_pointer = &ordinal;
-  } else {
-    ordinal_pointer = 0;
-  };
+  ordinal_pointer = scm_to_db_ordinal(scm_ordinal, (&ordinal));
   /* retrieve */
   if (scm_is_symbol(scm_retrieve)) {
     if (scm_is_eq(scm_symbol_right, scm_retrieve)) {
@@ -802,6 +813,68 @@ SCM scm_db_record_index_read(SCM scm_selection, SCM scm_count) {
 exit:
   scm_from_status_dynwind_end_return(scm_records);
 };
+SCM scm_db_record_delete(SCM scm_txn, SCM scm_ids) {
+  status_declare;
+  db_ids_declare(ids);
+  scm_dynwind_begin(0);
+  status_require((scm_to_db_ids(scm_ids, (&ids))));
+  scm_dynwind_free((ids.start));
+  status_require((db_record_delete((*(scm_to_db_txn(scm_txn))), ids)));
+exit:
+  scm_from_status_dynwind_end_return(SCM_UNSPECIFIED);
+};
+SCM scm_db_record_delete_type(SCM scm_txn, SCM scm_type_id) {
+  status_declare;
+  status_require((db_record_delete_type(
+    (*(scm_to_db_txn(scm_txn))), (scm_to_uintmax(scm_type_id)))));
+exit:
+  scm_from_status_return(SCM_UNSPECIFIED);
+};
+SCM scm_db_relation_delete(SCM scm_txn,
+  SCM scm_left,
+  SCM scm_right,
+  SCM scm_label,
+  SCM scm_ordinal) {
+  status_declare;
+  db_ids_declare(left);
+  db_ids_declare(right);
+  db_ids_declare(label);
+  db_ids_t* left_pointer;
+  db_ids_t* right_pointer;
+  db_ids_t* label_pointer;
+  db_ordinal_condition_t ordinal;
+  db_ordinal_condition_t* ordinal_pointer;
+  scm_dynwind_begin(0);
+  if (scm_is_pair(scm_left)) {
+    status_require((scm_to_db_ids(scm_left, (&left))));
+    scm_dynwind_free((left.start));
+    left_pointer = &left;
+  } else {
+    left_pointer = 0;
+  };
+  if (scm_is_pair(scm_right)) {
+    status_require((scm_to_db_ids(scm_right, (&right))));
+    scm_dynwind_free((right.start));
+    right_pointer = &right;
+  } else {
+    right_pointer = 0;
+  };
+  if (scm_is_pair(scm_label)) {
+    status_require((scm_to_db_ids(scm_label, (&label))));
+    scm_dynwind_free((label.start));
+    label_pointer = &label;
+  } else {
+    label_pointer = 0;
+  };
+  ordinal_pointer = scm_to_db_ordinal(scm_ordinal, (&ordinal));
+  status_require((db_relation_delete((*(scm_to_db_txn(scm_txn))),
+    left_pointer,
+    right_pointer,
+    label_pointer,
+    ordinal_pointer)));
+exit:
+  scm_from_status_dynwind_end_return(SCM_UNSPECIFIED);
+};
 /** prepare scm values and register guile bindings */
 void db_guile_init() {
   SCM type_slots;
@@ -917,10 +990,19 @@ void db_guile_init() {
     "db-type-id", 1, 0, 0, scm_db_type_id, ("type -> integer:type-id"));
   scm_c_define_procedure_c(
     "db-type-name", 1, 0, 0, scm_db_type_name, ("type -> string"));
-  scm_c_define_procedure_c(
-    "db-type-indices", 1, 0, 0, scm_db_type_indices, ("type -> list"));
-  scm_c_define_procedure_c(
-    "db-type-fields", 1, 0, 0, scm_db_type_fields, ("type -> list"));
+  scm_c_define_procedure_c("db-type-indices",
+    1,
+    0,
+    0,
+    scm_db_type_indices,
+    ("type -> (index-info:((integer:field-offset . string:field-name) ...) "
+     "...)"));
+  scm_c_define_procedure_c("db-type-fields",
+    1,
+    0,
+    0,
+    scm_db_type_fields,
+    ("type -> ((string:field-name . symbol:field-type) ...)"));
   scm_c_define_procedure_c(
     "db-type-virtual?", 1, 0, 0, scm_db_type_virtual_p, ("type -> boolean"));
   scm_c_define_procedure_c(
@@ -1006,10 +1088,10 @@ void db_guile_init() {
     ("type record integer:field-offset -> any:value"));
   scm_c_define_procedure_c("db-record-get",
     2,
-    0,
+    1,
     0,
     scm_db_record_get,
-    ("txn list:ids -> (record ...)"));
+    ("txn list:ids [boolean:match-all] -> (record ...)"));
   scm_c_define_procedure_c(("db-record->vector"),
     2,
     0,
@@ -1054,4 +1136,23 @@ void db_guile_init() {
     0,
     scm_db_record_index_read,
     ("selection integer:count -> (record ...)"));
+  scm_c_define_procedure_c("db-record-delete",
+    2,
+    0,
+    0,
+    scm_db_record_delete,
+    ("txn (integer ...):ids -> unspecified"));
+  scm_c_define_procedure_c("db-record-delete-type",
+    2,
+    0,
+    0,
+    scm_db_record_delete_type,
+    ("txn integer:type-id -> unspecified"));
+  scm_c_define_procedure_c("db-relation-delete",
+    1,
+    4,
+    0,
+    scm_db_relation_delete,
+    ("txn [list:left:ids list:right:ids list:label:ids "
+     "integer/list:minmax/(min max):ordinal] -> unspecified"));
 };

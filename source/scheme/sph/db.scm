@@ -19,6 +19,8 @@
     db-record->values
     db-record->vector
     db-record-create
+    db-record-delete
+    db-record-delete-type
     db-record-get
     db-record-index-read
     db-record-index-select
@@ -29,6 +31,7 @@
     db-record-virtual
     db-record-virtual-data
     db-record.index-read
+    db-relation-delete
     db-relation-ensure
     db-relation-field-names
     db-relation-label

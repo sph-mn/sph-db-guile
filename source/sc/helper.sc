@@ -354,14 +354,14 @@
     ( (db-field-type-uint128f db-field-type-uint256f db-field-type-int128f db-field-type-int256f)
       (set b
         (scm-sint-list->bytevector (scm-list-1 scm-a) scm-endianness-little (scm-from-size-t size)))
-      (status-require (db-helper-malloc size &data))
+      (status-require (sph-helper-malloc size &data))
       (scm-dynwind-unwind-handler free data 0) (memcpy data (SCM-BYTEVECTOR-CONTENTS b) size))
     ( (db-field-type-uint8f
         db-field-type-uint16f
         db-field-type-uint32f
         db-field-type-uint64f
         db-field-type-int8f db-field-type-int16f db-field-type-int32f db-field-type-int64f)
-      (status-require (db-helper-malloc size &data))
+      (status-require (sph-helper-malloc size &data))
       (scm-dynwind-unwind-handler free data 0)
       (case = field-type
         (db-field-type-uint8f (set (pointer-get (convert-type data uint8-t*)) (scm->uint8 scm-a)))
@@ -437,7 +437,7 @@
   (case = field-type
     (db-field-type-float64f
       (set size 8)
-      (status-require (db-helper-malloc size &data))
+      (status-require (sph-helper-malloc size &data))
       (scm-dynwind-unwind-handler free data 0)
       (set (pointer-get (convert-type data double*)) (scm->double scm-a)))
     (else (status-set-both-goto status-group-db-guile status-id-field-value-invalid)))

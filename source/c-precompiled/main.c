@@ -3,7 +3,7 @@
 #include <libguile.h>
 #include <sph-db.h>
 #include <sph-db-extra.h>
-#include "./foreign/sph/one.c"
+#include "./foreign/sph/helper.c"
 #include "./foreign/sph/guile.c"
 #include "./foreign/sph/memreg.c"
 #include "./foreign/sph/memreg-heap.c"
@@ -176,7 +176,7 @@ SCM scm_db_txn_begin(SCM scm_env) {
   status_declare;
   db_txn_t* txn;
   txn = 0;
-  status_require((db_helper_calloc((sizeof(db_txn_t)), (&txn))));
+  status_require((sph_helper_calloc((sizeof(db_txn_t)), (&txn))));
   txn->env = scm_to_db_env(scm_env);
   status_require((db_txn_begin(txn)));
 exit:
@@ -192,7 +192,7 @@ SCM scm_db_txn_write_begin(SCM scm_env) {
   status_declare;
   db_txn_t* txn;
   txn = 0;
-  status_require((db_helper_calloc((sizeof(db_txn_t)), (&txn))));
+  status_require((sph_helper_calloc((sizeof(db_txn_t)), (&txn))));
   txn->env = scm_to_db_env(scm_env);
   status_require((db_txn_write_begin(txn)));
 exit:
@@ -225,7 +225,7 @@ SCM scm_db_type_create(SCM scm_env,
   flags = (scm_is_undefined(scm_flags) ? 0 : scm_to_uint8(scm_flags));
   fields_len = scm_to_uintmax((scm_length(scm_fields)));
   status_require(
-    (db_helper_calloc((fields_len * sizeof(db_field_t)), (&fields))));
+    (sph_helper_calloc((fields_len * sizeof(db_field_t)), (&fields))));
   scm_dynwind_free(fields);
   for (i = 0; (i < fields_len);
        i = (1 + i), scm_fields = scm_tail(scm_fields)) {
@@ -501,7 +501,7 @@ SCM scm_db_relation_select(SCM scm_txn,
   };
   /* db-relation-select */
   status_require(
-    (db_helper_malloc((sizeof(db_guile_relation_selection_t)), (&selection))));
+    (sph_helper_malloc((sizeof(db_guile_relation_selection_t)), (&selection))));
   scm_dynwind_unwind_handler(free, selection, 0);
   memreg_add(selection);
   status_require_read((db_relation_select((*(scm_to_db_txn(scm_txn))),
@@ -539,7 +539,7 @@ SCM scm_db_record_select(SCM scm_txn,
   db_guile_record_selection_t* selection;
   scm_dynwind_begin(0);
   status_require(
-    (db_helper_malloc((sizeof(db_guile_record_selection_t)), (&selection))));
+    (sph_helper_malloc((sizeof(db_guile_record_selection_t)), (&selection))));
   scm_dynwind_unwind_handler(free, selection, 0);
   /* matcher */
   if (scm_is_true((scm_procedure_p(scm_matcher)))) {
@@ -705,7 +705,7 @@ SCM scm_db_record_virtual_data(SCM scm_type, SCM scm_id) {
   id = scm_to_uintmax(scm_id);
   type = scm_to_db_type(scm_type);
   size = type->fields->size;
-  status_require((db_helper_malloc(size, (&data))));
+  status_require((sph_helper_malloc(size, (&data))));
   data = db_record_virtual_data(id, data, size);
   result = scm_from_field_data(data, size, (type->fields->type));
 exit:
@@ -721,7 +721,7 @@ SCM scm_db_index_select(SCM scm_txn, SCM scm_index, SCM scm_values) {
   scm_dynwind_begin(0);
   index = *(scm_to_db_index(scm_index));
   status_require(
-    (db_helper_malloc((sizeof(db_guile_index_selection_t)), (&selection))));
+    (sph_helper_malloc((sizeof(db_guile_index_selection_t)), (&selection))));
   scm_dynwind_unwind_handler(free, selection, 0);
   /* this converts all given values even if some fields are not used */
   status_require((scm_c_to_db_record_values(
@@ -772,7 +772,7 @@ SCM scm_db_record_index_select(SCM scm_txn, SCM scm_index, SCM scm_values) {
   db_index_t index;
   scm_dynwind_begin(0);
   index = *(scm_to_db_index(scm_index));
-  status_require((db_helper_malloc(
+  status_require((sph_helper_malloc(
     (sizeof(db_guile_record_index_selection_t)), (&selection))));
   scm_dynwind_unwind_handler(free, selection, 0);
   /* this converts all given values even if some fields are not used */

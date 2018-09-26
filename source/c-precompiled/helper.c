@@ -459,7 +459,7 @@ status_t scm_to_field_data_integer(SCM scm_a,
     (db_field_type_int256f == field_type)) {
     b = scm_sint_list_to_bytevector(
       (scm_list_1(scm_a)), scm_endianness_little, (scm_from_size_t(size)));
-    status_require((db_helper_malloc(size, (&data))));
+    status_require((sph_helper_malloc(size, (&data))));
     scm_dynwind_unwind_handler(free, data, 0);
     memcpy(data, (SCM_BYTEVECTOR_CONTENTS(b)), size);
   } else if ((db_field_type_uint8f == field_type) ||
@@ -470,7 +470,7 @@ status_t scm_to_field_data_integer(SCM scm_a,
     (db_field_type_int16f == field_type) ||
     (db_field_type_int32f == field_type) ||
     (db_field_type_int64f == field_type)) {
-    status_require((db_helper_malloc(size, (&data))));
+    status_require((sph_helper_malloc(size, (&data))));
     scm_dynwind_unwind_handler(free, data, 0);
     if (db_field_type_uint8f == field_type) {
       *((uint8_t*)(data)) = scm_to_uint8(scm_a);
@@ -555,7 +555,7 @@ status_t scm_to_field_data_float(SCM scm_a,
   /* there is no scm->float */
   if (db_field_type_float64f == field_type) {
     size = 8;
-    status_require((db_helper_malloc(size, (&data))));
+    status_require((sph_helper_malloc(size, (&data))));
     scm_dynwind_unwind_handler(free, data, 0);
     *((double*)(data)) = scm_to_double(scm_a);
   } else {

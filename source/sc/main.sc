@@ -5,7 +5,7 @@
   "libguile.h"
   "sph-db.h"
   "sph-db-extra.h"
-  "./foreign/sph/one.c"
+  "./foreign/sph/helper.c"
   "./foreign/sph/guile.c" "./foreign/sph/memreg.c" "./foreign/sph/memreg-heap.c" "./helper.c")
 
 (define (scm-db-txn-active? a) (SCM SCM) (return (scm-from-bool (scm->db-txn a))))
@@ -149,7 +149,7 @@
   status-declare
   (declare txn db-txn-t*)
   (set txn 0)
-  (status-require (db-helper-calloc (sizeof db-txn-t) &txn))
+  (status-require (sph-helper-calloc (sizeof db-txn-t) &txn))
   (set txn:env (scm->db-env scm-env))
   (status-require (db-txn-begin txn))
   (label exit
@@ -163,7 +163,7 @@
   status-declare
   (declare txn db-txn-t*)
   (set txn 0)
-  (status-require (db-helper-calloc (sizeof db-txn-t) &txn))
+  (status-require (sph-helper-calloc (sizeof db-txn-t) &txn))
   (set txn:env (scm->db-env scm-env))
   (status-require (db-txn-write-begin txn))
   (label exit
@@ -194,7 +194,7 @@
     (if* (scm-is-undefined scm-flags) 0
       (scm->uint8 scm-flags))
     fields-len (scm->uintmax (scm-length scm-fields)))
-  (status-require (db-helper-calloc (* fields-len (sizeof db-field-t)) &fields))
+  (status-require (sph-helper-calloc (* fields-len (sizeof db-field-t)) &fields))
   (scm-dynwind-free fields)
   (for
     ( (set i 0) (< i fields-len)
@@ -451,7 +451,7 @@
       (else (status-set-both-goto status-group-db-guile status-id-invalid-argument)))
     (set scm-from-relations scm-from-db-relations))
   (sc-comment "db-relation-select")
-  (status-require (db-helper-malloc (sizeof db-guile-relation-selection-t) &selection))
+  (status-require (sph-helper-malloc (sizeof db-guile-relation-selection-t) &selection))
   (scm-dynwind-unwind-handler free selection 0)
   (memreg-add selection)
   (status-require-read
@@ -482,7 +482,7 @@
     scm-state SCM
     selection db-guile-record-selection-t*)
   (scm-dynwind-begin 0)
-  (status-require (db-helper-malloc (sizeof db-guile-record-selection-t) &selection))
+  (status-require (sph-helper-malloc (sizeof db-guile-record-selection-t) &selection))
   (scm-dynwind-unwind-handler free selection 0)
   (sc-comment "matcher")
   (if (scm-is-true (scm-procedure? scm-matcher))
@@ -643,7 +643,7 @@
     id (scm->uintmax scm-id)
     type (scm->db-type scm-type)
     size type:fields:size)
-  (status-require (db-helper-malloc size &data))
+  (status-require (sph-helper-malloc size &data))
   (set
     data (db-record-virtual-data id data size)
     result (scm-from-field-data data size type:fields:type))
@@ -660,7 +660,7 @@
     index db-index-t)
   (scm-dynwind-begin 0)
   (set index (pointer-get (scm->db-index scm-index)))
-  (status-require (db-helper-malloc (sizeof db-guile-index-selection-t) &selection))
+  (status-require (sph-helper-malloc (sizeof db-guile-index-selection-t) &selection))
   (scm-dynwind-unwind-handler free selection 0)
   (sc-comment "this converts all given values even if some fields are not used")
   (status-require (scm-c->db-record-values index.type scm-values &values &allocations))
@@ -710,7 +710,7 @@
     index db-index-t)
   (scm-dynwind-begin 0)
   (set index (pointer-get (scm->db-index scm-index)))
-  (status-require (db-helper-malloc (sizeof db-guile-record-index-selection-t) &selection))
+  (status-require (sph-helper-malloc (sizeof db-guile-record-index-selection-t) &selection))
   (scm-dynwind-unwind-handler free selection 0)
   (sc-comment "this converts all given values even if some fields are not used")
   (status-require (scm-c->db-record-values index.type scm-values &values &allocations))

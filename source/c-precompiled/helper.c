@@ -113,13 +113,12 @@ define_scm_from_db_relations_retrieve(left);
 define_scm_from_db_relations_retrieve(right);
 define_scm_from_db_relations_retrieve(label);
 define_scm_from_db_relations_retrieve(ordinal);
-/** get the db-field for either a field offset integer or field name */
+/** get a db-field by either a field offset integer or field name string */
 status_t
 scm_to_field_offset(SCM scm_a, db_type_t* type, db_fields_len_t* result) {
   status_declare;
   db_field_t* field;
   uint8_t* field_name;
-  field_name = 0;
   if (scm_is_integer(scm_a)) {
     *result = scm_to_uintmax(scm_a);
   } else {

@@ -513,17 +513,21 @@
     (scm-from-status-dynwind-end-return scm-selection)))
 
 (define (scm-db-record-ref scm-type scm-record scm-field) (SCM SCM SCM SCM)
+  status-declare
   (declare
     value db-record-value-t
     type db-type-t*
-    field-offset db-fields-len-t)
+    field-offset db-fields-len-t
+    result SCM)
+  (set type (scm->db-type scm-type))
+  (status-require (scm->field-offset scm-field type &field-offset))
   (set
-    type (scm->db-type scm-type)
-    field-offset (scm->uintmax scm-field)
-    value (db-record-ref type (pointer-get (scm->db-record scm-record)) field-offset))
-  (return
+    value (db-record-ref type (pointer-get (scm->db-record scm-record)) field-offset)
+    result
     (scm-from-field-data
-      value.data value.size (struct-get (array-get type:fields field-offset) type))))
+      value.data value.size (struct-get (array-get type:fields field-offset) type)))
+  (label exit
+    (scm-from-status-return result)))
 
 (define (scm-db-record->vector scm-type scm-record) (SCM SCM SCM)
   (declare
@@ -933,7 +937,8 @@
   (scm-c-define-procedure-c
     "db-record-read" 2 0 0 scm-db-record-read "selection integer:count -> (record ...)")
   (scm-c-define-procedure-c
-    "db-record-ref" 3 0 0 scm-db-record-ref "type record integer:field-offset -> any:value")
+    "db-record-ref"
+    3 0 0 scm-db-record-ref "type record integer/string:field-offset/field-name -> any:value")
   (scm-c-define-procedure-c
     "db-record-get" 2 1 0 scm-db-record-get "txn list:ids [boolean:match-all] -> (record ...)")
   (scm-c-define-procedure-c

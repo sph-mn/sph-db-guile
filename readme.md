@@ -96,11 +96,14 @@ db-record-get returns a list of ``db-record`` objects. field values have not bee
 to get record field values
 ```
 (define record (first records))
-(define value (db-record-ref type record 1))
+(define value (db-record-ref type record "field-2"))
 (define values (db-record->vector record))
 ```
 
-a solution for access by field name is work in progress
+it is faster to access the field by index (starting from 0)
+```
+(define value (db-record-ref type record 1))
+```
 
 ### by type
 ```
@@ -228,7 +231,7 @@ db-record-get :: txn list:ids [boolean:match-all] -> (record ...)
 db-record-index-read :: selection integer:count -> (record ...)
 db-record-index-select :: txn index ((field-offset . any:value) ...) -> selection
 db-record-read :: selection integer:count -> (record ...)
-db-record-ref :: type record integer:field-offset -> any:value
+db-record-ref :: type record integer/string:field-offset/field-name -> any:value
 db-record-select :: txn type [matcher matcher-state] -> selection
 db-record-update :: txn type id ((field-offset . value) ...) -> unspecified
 db-record-virtual :: type data -> id

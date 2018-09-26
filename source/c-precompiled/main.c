@@ -571,14 +571,18 @@ exit:
   scm_from_status_dynwind_end_return(scm_selection);
 };
 SCM scm_db_record_ref(SCM scm_type, SCM scm_record, SCM scm_field) {
+  status_declare;
   db_record_value_t value;
   db_type_t* type;
   db_fields_len_t field_offset;
+  SCM result;
   type = scm_to_db_type(scm_type);
-  field_offset = scm_to_uintmax(scm_field);
+  status_require((scm_to_field_offset(scm_field, type, (&field_offset))));
   value = db_record_ref(type, (*(scm_to_db_record(scm_record))), field_offset);
-  return ((scm_from_field_data(
-    (value.data), (value.size), (((type->fields)[field_offset]).type))));
+  result = scm_from_field_data(
+    (value.data), (value.size), (((type->fields)[field_offset]).type));
+exit:
+  scm_from_status_return(result);
 };
 SCM scm_db_record_to_vector(SCM scm_type, SCM scm_record) {
   db_fields_len_t fields_len;
@@ -1085,7 +1089,7 @@ void db_guile_init() {
     0,
     0,
     scm_db_record_ref,
-    ("type record integer:field-offset -> any:value"));
+    ("type record integer/string:field-offset/field-name -> any:value"));
   scm_c_define_procedure_c("db-record-get",
     2,
     1,

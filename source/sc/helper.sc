@@ -118,12 +118,11 @@
 (define-scm-from-db-relations-retrieve ordinal)
 
 (define (scm->field-offset scm-a type result) (status-t SCM db-type-t* db-fields-len-t*)
-  "get the db-field for either a field offset integer or field name"
+  "get a db-field by either a field offset integer or field name string"
   status-declare
   (declare
     field db-field-t*
     field-name uint8-t*)
-  (set field-name 0)
   (if (scm-is-integer scm-a) (set *result (scm->uintmax scm-a))
     (begin
       (set

@@ -12,11 +12,11 @@ available. usage: memreg_init(4); memreg_add(&variable-1);
   memreg_register[memreg_index] = address; \
   memreg_index = (1 + memreg_index)
 #define memreg_free \
-  "free all currently registered pointers"; \
   while (memreg_index) { \
+    /* free all currently registered pointers */ \
     memreg_index = (memreg_index - 1); \
     free((*(memreg_register + memreg_index))); \
-  };
+  }
 /* the *_named variant of memreg supports multiple concurrent registers
 identified by name usage: memreg_init_named(testname, 4);
      memreg_add_named(testname, &variable);

@@ -318,7 +318,6 @@ SCM scm_db_record_create(SCM scm_txn, SCM scm_type, SCM scm_values) {
   status_declare;
   db_record_values_declare(values);
   memreg_heap_declare(allocations);
-  SCM scm_value;
   db_id_t result_id;
   db_type_t* type;
   scm_dynwind_begin(0);
@@ -441,7 +440,6 @@ SCM scm_db_relation_select(SCM scm_txn,
   db_ids_t* label_pointer;
   db_ids_t left;
   db_ids_t* left_pointer;
-  uint32_t offset;
   db_ordinal_condition_t ordinal;
   db_ordinal_condition_t* ordinal_pointer;
   db_ids_t right;
@@ -535,7 +533,6 @@ SCM scm_db_record_select(SCM scm_txn,
   db_record_matcher_t matcher;
   void* matcher_state;
   SCM scm_selection;
-  SCM scm_state;
   db_guile_record_selection_t* selection;
   scm_dynwind_begin(0);
   status_require(
@@ -698,7 +695,6 @@ SCM scm_db_record_virtual_data(SCM scm_type, SCM scm_id) {
   void* data;
   size_t size;
   db_id_t id;
-  db_field_type_t field_type;
   db_type_t* type;
   SCM result;
   result = SCM_BOOL_F;

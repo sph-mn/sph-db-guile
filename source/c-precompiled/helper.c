@@ -142,11 +142,9 @@ status_t scm_to_field_offsets(SCM scm_type,
   db_fields_len_t* result_len) {
   status_declare;
   SCM scm_field;
-  db_field_t* field;
   db_fields_len_t i;
   db_fields_len_t fields_len;
   db_fields_len_t* fields;
-  uint8_t* field_name;
   db_type_t* type;
   fields_len = scm_to_uintmax((scm_length(scm_fields)));
   type = scm_to_db_type(scm_type);
@@ -505,18 +503,18 @@ status_t scm_to_field_data_string(SCM scm_a,
   size_t* result_size,
   boolean* result_needs_free) {
   status_declare;
-  if ((db_field_type_string8 == field_type) ||
-    (db_field_type_string16 == field_type) ||
-    (db_field_type_string32 == field_type) ||
-    (db_field_type_string64 == field_type) ||
-    (db_field_type_string8f == field_type) ||
-    (db_field_type_string16f == field_type) ||
-    (db_field_type_string32f == field_type) ||
-    (db_field_type_string64f == field_type) ||
-    (db_field_type_string128f == field_type) ||
-    (db_field_type_string256f == field_type)) {
-    1;
-  } else {
+  if (((db_field_type_string8 == field_type) ||
+        (db_field_type_string16 == field_type) ||
+        (db_field_type_string32 == field_type) ||
+        (db_field_type_string64 == field_type) ||
+        (db_field_type_string8f == field_type) ||
+        (db_field_type_string16f == field_type) ||
+        (db_field_type_string32f == field_type) ||
+        (db_field_type_string64f == field_type) ||
+        (db_field_type_string128f == field_type) ||
+        (db_field_type_string256f == field_type))
+      ? 0
+      : 1) {
     status_set_both_goto(status_group_db_guile, status_id_field_value_invalid);
   };
   *result_needs_free = 1;

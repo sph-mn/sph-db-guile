@@ -288,7 +288,6 @@
   (db-record-values-declare values)
   (memreg-heap-declare allocations)
   (declare
-    scm-value SCM
     result-id db-id-t
     type db-type-t*)
   (scm-dynwind-begin 0)
@@ -404,7 +403,6 @@
     label-pointer db-ids-t*
     left db-ids-t
     left-pointer db-ids-t*
-    offset uint32-t
     ordinal db-ordinal-condition-t
     ordinal-pointer db-ordinal-condition-t*
     right db-ids-t
@@ -479,7 +477,6 @@
     matcher db-record-matcher-t
     matcher-state void*
     scm-selection SCM
-    scm-state SCM
     selection db-guile-record-selection-t*)
   (scm-dynwind-begin 0)
   (status-require (sph-helper-malloc (sizeof db-guile-record-selection-t) &selection))
@@ -635,7 +632,6 @@
     data void*
     size size-t
     id db-id-t
-    field-type db-field-type-t
     type db-type-t*
     result SCM)
   (set

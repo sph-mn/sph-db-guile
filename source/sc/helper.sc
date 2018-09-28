@@ -140,11 +140,9 @@
   status-declare
   (declare
     scm-field SCM
-    field db-field-t*
     i db-fields-len-t
     fields-len db-fields-len-t
     fields db-fields-len-t*
-    field-name uint8-t*
     type db-type-t*)
   (set
     fields-len (scm->uintmax (scm-length scm-fields))
@@ -387,17 +385,19 @@
 (define (scm->field-data-string scm-a field-type result-data result-size result-needs-free)
   (status-t SCM db-field-type-t void** size-t* boolean*)
   status-declare
-  (case = field-type
-    ( (db-field-type-string8
-        db-field-type-string16
-        db-field-type-string32
-        db-field-type-string64
-        db-field-type-string8f
-        db-field-type-string16f
-        db-field-type-string32f
-        db-field-type-string64f db-field-type-string128f db-field-type-string256f)
-      #t)
-    (else (status-set-both-goto status-group-db-guile status-id-field-value-invalid)))
+  (if
+    (case* = field-type
+      ( (db-field-type-string8
+          db-field-type-string16
+          db-field-type-string32
+          db-field-type-string64
+          db-field-type-string8f
+          db-field-type-string16f
+          db-field-type-string32f
+          db-field-type-string64f db-field-type-string128f db-field-type-string256f)
+        0)
+      (else 1))
+    (status-set-both-goto status-group-db-guile status-id-field-value-invalid))
   (set
     *result-needs-free #t
     *result-data (scm->utf8-stringn scm-a result-size))

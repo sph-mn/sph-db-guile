@@ -806,7 +806,8 @@
   "prepare scm values and register guile bindings"
   (declare
     type-slots SCM
-    scm-symbol-data SCM)
+    scm-symbol-data SCM
+    m SCM)
   (set
     scm-rnrs-raise (scm-c-public-ref "rnrs exceptions" "raise")
     scm-symbol-binary8 (scm-from-latin1-symbol "binary8")
@@ -858,10 +859,10 @@
     (scm-make-foreign-object-type (scm-from-latin1-symbol "db-selection") type-slots 0) type-slots
     (scm-list-2 scm-symbol-data (scm-from-latin1-symbol "env")) scm-type-type
     (scm-make-foreign-object-type (scm-from-latin1-symbol "db-type") type-slots 0) scm-type-index
-    (scm-make-foreign-object-type (scm-from-latin1-symbol "db-index") type-slots 0))
+    (scm-make-foreign-object-type (scm-from-latin1-symbol "db-index") type-slots 0)
+    m (scm-c-resolve-module "sph db"))
   ; exports
   scm-c-define-procedure-c-init
-  (define m SCM (scm-c-resolve-module "sph db"))
   (scm-c-module-define m "db-type-flag-virtual" (scm-from-uint8 db-type-flag-virtual))
   (scm-c-define-procedure-c
     "db-open" 1 1 0 scm-db-open "string:root-path [((key . value) ...):options] -> env")

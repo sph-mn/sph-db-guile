@@ -74,7 +74,7 @@ integer field offsets and names supported
 (define index (db-index-create type index-fields))
 ```
 
-to get a type handle where needed
+to get an index handle where needed
 ```
 (db-index-get type index-fields)
 ```
@@ -124,14 +124,14 @@ custom state values can be provided to the matcher as a single non-list argument
 ```
 
 ### via index
-only record ids, faster
+get only record ids, faster
 ```
 (define index (db-index-get type (list "field-1" "field-3")))
 (define selection (db-index-select txn index (q ((0 . 123) (1 . 45)))))
 (define ids (db-index-read selection 4))
 ```
 
-record objects
+get record objects
 ```
 (define selection (db-record-index-select txn index (q ((0 . 123) (1 . 45)))))
 (define records (db-record-index-read selection 4))
@@ -163,7 +163,7 @@ with label - labels are also record ids:
 (define relations (db-relation-read selection 100))
 ```
 
-selects all relations that match any id of every filter left/right/label-ids ("or"). the empty list matches nothing and leads to an empty result. false disables a filter and matches all for that property
+selects all relations that match any id of every filter left/right/label-ids. the empty list matches nothing and leads to an empty result. false disables a filter and matches all for that property
 
 ``db-relation-read`` returns a list of vectors. the following accessor procedures for relation vectors are available
 
@@ -198,8 +198,6 @@ defaults are set by sph-db.
 |maximum-reader-count|integer||
 |filesystem-has-ordered-writes|boolean||
 |env-open-flags|integer|lmdb environment options|
-
-note: db-guile selections are bound to threads, the lmdb option MDB-NOTLS would probably not work
 
 # error handling
 rnrs exceptions

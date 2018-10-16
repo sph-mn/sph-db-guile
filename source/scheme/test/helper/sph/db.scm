@@ -13,15 +13,15 @@
     (rnrs bytevectors)
     (sph)
     (sph alist)
-    (sph char-set-vector)
     (sph db)
     (sph list)
-    (sph list one)
-    (sph one)
+    (sph list other)
+    (sph other)
     (sph random-data)
     (only (rnrs base) set!))
 
   (define test-helper-db-database-root "/tmp/test/sph-db")
+  (define char-set-vector:hex-digit (list->vector (char-set->list char-set:hex-digit)))
   (define (delete-file-if-exists a) (and (file-exists? a) (delete-file a)))
 
   (define* (test-helper-field-data type size)

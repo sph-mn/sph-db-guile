@@ -879,6 +879,7 @@ exit:
 void db_guile_init() {
   SCM type_slots;
   SCM scm_symbol_data;
+  SCM m;
   scm_rnrs_raise = scm_c_public_ref("rnrs exceptions", "raise");
   scm_symbol_binary8 = scm_from_latin1_symbol("binary8");
   scm_symbol_binary16 = scm_from_latin1_symbol("binary16");
@@ -935,8 +936,8 @@ void db_guile_init() {
     (scm_from_latin1_symbol("db-type")), type_slots, 0);
   scm_type_index = scm_make_foreign_object_type(
     (scm_from_latin1_symbol("db-index")), type_slots, 0);
+  m = scm_c_resolve_module("sph db");
   scm_c_define_procedure_c_init;
-  SCM m = scm_c_resolve_module("sph db");
   scm_c_module_define(
     m, "db-type-flag-virtual", (scm_from_uint8(db_type_flag_virtual)));
   scm_c_define_procedure_c("db-open",

@@ -17,7 +17,6 @@
     (sph list)
     (sph list other)
     (sph other)
-    (sph random-data)
     (only (rnrs base) set!))
 
   (define test-helper-db-database-root "/tmp/test/sph-db")
@@ -26,13 +25,13 @@
 
   (define* (test-helper-field-data type size)
     "should perhaps not be random to make it easier to find errors.
-     if an error occurs with random data, the next test call would produce the same data"
+     if an error occurs with random data, the next test call doesnt produce the same data"
     (case type
       ((int) (first (bytevector->sint-list (random-bytevector size) (endianness little) size)))
       ((uint) (first (bytevector->uint-list (random-bytevector size) (endianness little) size)))
       ((string) (random-string size char-set-vector:hex-digit))
       ((binary) (random-bytevector size))
-      ((float) (/ (random size 1) 1.1))))
+      ((float) (/ (+ 1 (random size)) 1.1))))
 
   (define (test-helper-type-create-1 env c)
     (let*

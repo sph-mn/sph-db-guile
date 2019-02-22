@@ -1,14 +1,13 @@
-#!/bin/sh
+#!/bin/sh -e
 
 # usage: ./exe/install [path-prefix]
 
 prefix="$1"
-lib_name=libguile-sph-dg.so
 lib_dir="$prefix/usr/lib"
 guile_dir="$prefix/usr/share/guile/site"
 
-mkdir -p "$lib_dir" "$guile_dir" &&
-cp -t "$lib_dir" "temp/$lib_name" &&
-cp -rt "$guile_dir" "source/scheme/sph" "source/scheme/test" &&
-chmod 644 "$lib_dir/$lib_name" &&
-chmod -R 755 "$guile_dir/sph/storage" "$guile_dir/test/helper/sph/storage" "$guile_dir/test/module/sph/storage"
+mkdir -p "$lib_dir" "$guile_dir"
+cp -t "$lib_dir" "temp/libguile-sph-db.so"
+cp -rt "$guile_dir" "source/scheme/sph" "source/scheme/test"
+find "$guile_dir/sph" "$lib_dir/libguile-sph-db.so" -type d -exec chmod 755 {} \;
+find "$guile_dir/sph" "$lib_dir/libguile-sph-db.so" -type f -exec chmod 644 {} \;

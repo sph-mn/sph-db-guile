@@ -109,13 +109,13 @@ SCM scm_type_record;
 SCM scm_type_selection;
 SCM scm_type_txn;
 SCM scm_type_type;
-define_scm_from_db_relations_retrieve(left);
-define_scm_from_db_relations_retrieve(right);
-define_scm_from_db_relations_retrieve(label);
-define_scm_from_db_relations_retrieve(ordinal);
-/** get a db-field by either a field offset integer or field name string */
-status_t
-scm_to_field_offset(SCM scm_a, db_type_t* type, db_fields_len_t* result) {
+define_scm_from_db_relations_retrieve(left)
+  define_scm_from_db_relations_retrieve(right)
+    define_scm_from_db_relations_retrieve(label)
+      define_scm_from_db_relations_retrieve(ordinal)
+  /** get a db-field by either a field offset integer or field name string */
+  status_t
+  scm_to_field_offset(SCM scm_a, db_type_t* type, db_fields_len_t* result) {
   status_declare;
   db_field_t* field;
   uint8_t* field_name;
@@ -128,13 +128,12 @@ scm_to_field_offset(SCM scm_a, db_type_t* type, db_fields_len_t* result) {
     if (field) {
       *result = field->offset;
     } else {
-      status_set_both_goto(
-        status_group_db_guile, status_id_field_name_not_found);
+      status_set_goto(status_group_db_guile, status_id_field_name_not_found);
     };
   };
 exit:
   return (status);
-};
+}
 /** memory for result is handled by gc */
 status_t scm_to_field_offsets(SCM scm_type,
   SCM scm_fields,
@@ -159,7 +158,7 @@ status_t scm_to_field_offsets(SCM scm_type,
   *result_len = fields_len;
 exit:
   return (status);
-};
+}
 /** get the description if available for a status */
 uint8_t* db_guile_status_description(status_t a) {
   char* b;
@@ -177,7 +176,7 @@ uint8_t* db_guile_status_description(status_t a) {
     b = db_status_description(a);
   };
   return (((uint8_t*)(b)));
-};
+}
 /** get the name if available for a status */
 uint8_t* db_guile_status_name(status_t a) {
   char* b;
@@ -195,7 +194,7 @@ uint8_t* db_guile_status_name(status_t a) {
     b = db_status_name(a);
   };
   return (((uint8_t*)(b)));
-};
+}
 /** float32 not supported by guile */
 db_field_type_t scm_to_db_field_type(SCM a) {
   if (scm_is_eq(scm_symbol_string8, a)) {
@@ -267,7 +266,7 @@ db_field_type_t scm_to_db_field_type(SCM a) {
   } else {
     return (0);
   };
-};
+}
 SCM scm_from_db_field_type(db_field_type_t a) {
   if (db_field_type_string8 == a) {
     return (scm_symbol_string8);
@@ -338,7 +337,7 @@ SCM scm_from_db_field_type(db_field_type_t a) {
   } else {
     return (SCM_BOOL_F);
   };
-};
+}
 /** -> ((key . value) ...) */
 SCM scm_from_mdb_stat(MDB_stat a) {
   SCM b;
@@ -359,7 +358,7 @@ SCM scm_from_mdb_stat(MDB_stat a) {
     (scm_from_uint((a.ms_overflow_pages))),
     b);
   return (b);
-};
+}
 /** db-index-t* -> SCM:((field-offset . field-name) ...) */
 SCM scm_from_db_index_fields(db_index_t* a) {
   db_field_t field;
@@ -376,7 +375,7 @@ SCM scm_from_db_index_fields(db_index_t* a) {
       result);
   };
   return (result);
-};
+}
 SCM scm_from_field_data(void* data, size_t size, db_field_type_t field_type) {
   status_declare;
   SCM b;
@@ -434,11 +433,11 @@ SCM scm_from_field_data(void* data, size_t size, db_field_type_t field_type) {
     return ((scm_first((scm_bytevector_to_uint_list(
       b, scm_endianness_little, (scm_from_size_t(size)))))));
   } else {
-    status_set_both_goto(status_group_db_guile, status_id_field_value_invalid);
+    status_set_goto(status_group_db_guile, status_id_field_value_invalid);
   };
 exit:
   scm_from_status_return(SCM_UNSPECIFIED);
-};
+}
 status_t scm_to_field_data_integer(SCM scm_a,
   db_field_type_t field_type,
   void** result_data,
@@ -488,7 +487,7 @@ status_t scm_to_field_data_integer(SCM scm_a,
       *((int64_t*)(data)) = scm_to_int64(scm_a);
     };
   } else {
-    status_set_both_goto(status_group_db_guile, status_id_field_value_invalid);
+    status_set_goto(status_group_db_guile, status_id_field_value_invalid);
   };
   *result_data = data;
   *result_size = size;
@@ -496,7 +495,7 @@ status_t scm_to_field_data_integer(SCM scm_a,
 exit:
   scm_dynwind_end();
   return (status);
-};
+}
 status_t scm_to_field_data_string(SCM scm_a,
   db_field_type_t field_type,
   void** result_data,
@@ -515,13 +514,13 @@ status_t scm_to_field_data_string(SCM scm_a,
         (db_field_type_string256f == field_type))
       ? 0
       : 1) {
-    status_set_both_goto(status_group_db_guile, status_id_field_value_invalid);
+    status_set_goto(status_group_db_guile, status_id_field_value_invalid);
   };
   *result_needs_free = 1;
   *result_data = scm_to_utf8_stringn(scm_a, result_size);
 exit:
   return (status);
-};
+}
 status_t scm_to_field_data_bytevector(SCM scm_a,
   db_field_type_t field_type,
   void** result_data,
@@ -533,14 +532,14 @@ status_t scm_to_field_data_bytevector(SCM scm_a,
         db_field_type_binary8f || db_field_type_binary16f ||
         db_field_type_binary32f || db_field_type_binary64f ||
         db_field_type_binary128f || db_field_type_binary256f)) {
-    status_set_both_goto(status_group_db_guile, status_id_field_value_invalid);
+    status_set_goto(status_group_db_guile, status_id_field_value_invalid);
   };
   *result_needs_free = 0;
   *result_data = SCM_BYTEVECTOR_CONTENTS(scm_a);
   *result_size = SCM_BYTEVECTOR_LENGTH(scm_a);
 exit:
   return (status);
-};
+}
 status_t scm_to_field_data_float(SCM scm_a,
   db_field_type_t field_type,
   void** result_data,
@@ -557,7 +556,7 @@ status_t scm_to_field_data_float(SCM scm_a,
     scm_dynwind_unwind_handler(free, data, 0);
     *((double*)(data)) = scm_to_double(scm_a);
   } else {
-    status_set_both_goto(status_group_db_guile, status_id_field_value_invalid);
+    status_set_goto(status_group_db_guile, status_id_field_value_invalid);
   };
   *result_needs_free = 1;
   *result_data = data;
@@ -565,7 +564,7 @@ status_t scm_to_field_data_float(SCM scm_a,
 exit:
   scm_dynwind_end();
   return (status);
-};
+}
 /** convert an scm value to the format that will be used to for insert.
   result-data has to be freed by the caller only if result-needs-free is true.
   checks if the size of the data fits the field size */
@@ -588,11 +587,11 @@ status_t scm_to_field_data(SCM scm_a,
     return ((scm_to_field_data_float(
       scm_a, field_type, result_data, result_size, result_needs_free)));
   } else {
-    status_set_both_goto(status_group_db_guile, status_id_field_value_invalid);
+    status_set_goto(status_group_db_guile, status_id_field_value_invalid);
   };
 exit:
   return (status);
-};
+}
 /** this routine allocates result and passes ownership to the caller */
 status_t scm_to_db_ids(SCM scm_a, db_ids_t* result) {
   status_declare;
@@ -610,7 +609,7 @@ status_t scm_to_db_ids(SCM scm_a, db_ids_t* result) {
 exit:
   scm_dynwind_end();
   return (status);
-};
+}
 SCM scm_from_db_ids(db_ids_t a) {
   SCM b;
   b = SCM_EOL;
@@ -619,7 +618,7 @@ SCM scm_from_db_ids(db_ids_t a) {
     db_ids_forward(a);
   };
   return (b);
-};
+}
 SCM scm_from_db_records(db_records_t a) {
   db_record_t* b;
   SCM result;
@@ -631,7 +630,7 @@ SCM scm_from_db_records(db_records_t a) {
     i_array_forward(a);
   };
   return (result);
-};
+}
 SCM scm_from_db_relations(db_relations_t a) {
   SCM b;
   db_relation_t record;
@@ -646,7 +645,7 @@ SCM scm_from_db_relations(db_relations_t a) {
     db_relations_forward(a);
   };
   return (b);
-};
+}
 db_ordinal_t db_guile_ordinal_generator(void* state) {
   SCM scm_state;
   SCM scm_generator;
@@ -656,7 +655,7 @@ db_ordinal_t db_guile_ordinal_generator(void* state) {
   scm_result = scm_apply_0(scm_generator, (scm_tail(scm_state)));
   *((SCM*)(state)) = scm_cons(scm_generator, (scm_tail(scm_result)));
   return ((scm_to_uintmax((scm_first(scm_result)))));
-};
+}
 boolean
 db_guile_record_matcher(db_type_t* type, db_record_t record, void* state) {
   SCM scm_state;
@@ -670,11 +669,11 @@ db_guile_record_matcher(db_type_t* type, db_record_t record, void* state) {
     (scm_tail(scm_state)));
   *((SCM*)(state)) = scm_cons(scm_matcher, (scm_tail(scm_result)));
   return ((scm_to_bool((scm_first(scm_result)))));
-};
+}
 /** "free" compatible memreg-heap-free for use in scm-dynwind-unwind-handler */
 void db_guile_memreg_heap_free(void* a) {
   memreg_heap_free((*((memreg_register_t*)(a))));
-};
+}
 status_t scm_c_to_db_record_values(db_type_t* type,
   SCM scm_values,
   db_record_values_t* result_values,
@@ -692,7 +691,7 @@ status_t scm_c_to_db_record_values(db_type_t* type,
   values_len = scm_to_size_t((scm_length(scm_values)));
   /* allocate memreg for field-data and values array */
   if (values_len && memreg_heap_allocate((1 + values_len), (&allocations))) {
-    status_set_both_goto(status_group_db_guile, db_status_id_memory);
+    status_set_goto(status_group_db_guile, db_status_id_memory);
   };
   scm_dynwind_unwind_handler(db_guile_memreg_heap_free, (&allocations), 0);
   status_require((db_record_values_new(type, (&values))));
@@ -722,5 +721,5 @@ exit:
   };
   scm_dynwind_end();
   return (status);
-};
+}
 #include "./selections.c"

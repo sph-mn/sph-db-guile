@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <inttypes.h>
 #include <stdio.h>
-#define sph_helper_status_group "sph"
+#define sph_helper_status_group ((uint8_t*)("sph"))
 /** add explicit type cast to prevent compiler warning */
 #define sph_helper_malloc(size, result) \
   sph_helper_primitive_malloc(size, ((void**)(result)))
@@ -14,21 +14,21 @@
   sph_helper_primitive_realloc(size, ((void**)(result)))
 enum { sph_helper_status_id_memory };
 uint8_t* sph_helper_status_description(status_t a) {
-  char* b;
+  uint8_t* b;
   if (sph_helper_status_id_memory == a.id) {
     b = "not enough memory or other memory allocation error";
   } else {
     b = "";
   };
-};
+}
 uint8_t* sph_helper_status_name(status_t a) {
-  char* b;
+  uint8_t* b;
   if (sph_helper_status_id_memory == a.id) {
     b = "memory";
   } else {
     b = "unknown";
   };
-};
+}
 status_t sph_helper_primitive_malloc(size_t size, void** result) {
   status_declare;
   void* a;
@@ -39,8 +39,8 @@ status_t sph_helper_primitive_malloc(size_t size, void** result) {
     status.group = sph_helper_status_group;
     status.id = sph_helper_status_id_memory;
   };
-  return (status);
-};
+  status_return;
+}
 /** like sph-helper-malloc but allocates one extra byte that is set to zero */
 status_t sph_helper_primitive_malloc_string(size_t length, uint8_t** result) {
   status_declare;
@@ -49,8 +49,8 @@ status_t sph_helper_primitive_malloc_string(size_t length, uint8_t** result) {
   a[length] = 0;
   *result = a;
 exit:
-  return (status);
-};
+  status_return;
+}
 status_t sph_helper_primitive_calloc(size_t size, void** result) {
   status_declare;
   void* a;
@@ -61,8 +61,8 @@ status_t sph_helper_primitive_calloc(size_t size, void** result) {
     status.group = sph_helper_status_group;
     status.id = sph_helper_status_id_memory;
   };
-  return (status);
-};
+  status_return;
+}
 status_t sph_helper_primitive_realloc(size_t size, void** block) {
   status_declare;
   void* a;
@@ -73,8 +73,8 @@ status_t sph_helper_primitive_realloc(size_t size, void** block) {
     status.group = sph_helper_status_group;
     status.id = sph_helper_status_id_memory;
   };
-  return (status);
-};
+  status_return;
+}
 /** get a decimal string representation of an unsigned integer */
 uint8_t* sph_helper_uint_to_string(uintmax_t a, size_t* result_len) {
   size_t size;
@@ -91,7 +91,7 @@ uint8_t* sph_helper_uint_to_string(uintmax_t a, size_t* result_len) {
     *result_len = (size - 1);
     return (result);
   };
-};
+}
 /** display the bits of an octet */
 void sph_helper_display_bits_u8(uint8_t a) {
   uint8_t i;
@@ -99,7 +99,7 @@ void sph_helper_display_bits_u8(uint8_t a) {
   for (i = 1; (i < 8); i = (1 + i)) {
     printf("%u", (((((uint8_t)(1)) << i) & a) ? 1 : 0));
   };
-};
+}
 /** display the bits of the specified memory region */
 void sph_helper_display_bits(void* a, size_t size) {
   size_t i;
@@ -107,4 +107,4 @@ void sph_helper_display_bits(void* a, size_t size) {
     sph_helper_display_bits_u8((((uint8_t*)(a))[i]));
   };
   printf("\n");
-};
+}

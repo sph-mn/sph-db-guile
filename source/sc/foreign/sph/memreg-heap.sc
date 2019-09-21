@@ -1,10 +1,9 @@
-(sc-comment
-  "depends on sph/i_array.c."
-  "similar to sph/memreg.c but uses a specialised heap allocated array for the memory register
+(sc-comment "depends on i_array.c."
+  "similar to memreg.c but uses a specialised heap allocated array for the memory register
   that can be passed between functions"
   "usage:
      memreg_register_t allocations;
-     if(!memreg_heap_allocate(4, &allocations)) { return(1); }
+     if(!memreg_heap_allocate(2, &allocations)) { return(1); }
      memreg_heap_add(allocations, &variable-1);
      memreg_heap_add(allocations, &variable-2);
      memreg_heap_free(allocations);")
@@ -25,9 +24,7 @@
   (memreg-heap-free-pointers reg)
   (begin
     "free only the registered memory"
-    (while (i-array-in-range reg)
-      (free (i-array-get reg))
-      (i-array-forward reg)))
+    (while (i-array-in-range reg) (free (i-array-get reg)) (i-array-forward reg)))
   (memreg-heap-free reg)
   (begin
     "memreg-register-t -> unspecified

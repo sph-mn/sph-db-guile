@@ -12,39 +12,23 @@
   db-guile-selection-type-t
   (type
     (enum
-      (db-guile-selection-type-relation
-        db-guile-selection-type-record
+      (db-guile-selection-type-relation db-guile-selection-type-record
         db-guile-selection-type-record-index db-guile-selection-type-index)))
-  db-guile-selection-t
-  (type
-    (struct
-      (selection void*)
-      (selection-type db-guile-selection-type-t)))
+  db-guile-selection-t (type (struct (selection void*) (selection-type db-guile-selection-type-t)))
   db-guile-record-selection-t
-  (type
-    (struct
-      (matcher SCM)
-      (status-id status-id-t)
-      (selection db-record-selection-t)))
+  (type (struct (matcher SCM) (status-id int) (selection db-record-selection-t)))
   db-guile-relation-selection-t
   (type
     (struct
       (left db-ids-t)
       (right db-ids-t)
       (label db-ids-t)
-      (status-id status-id-t)
+      (status-id int)
       (scm-from-relations (function-pointer SCM db-relations-t))
       (selection db-relation-selection-t)))
-  db-guile-index-selection-t
-  (type
-    (struct
-      (status-id status-id-t)
-      (selection db-index-selection-t)))
+  db-guile-index-selection-t (type (struct (status-id int) (selection db-index-selection-t)))
   db-guile-record-index-selection-t
-  (type
-    (struct
-      (status-id status-id-t)
-      (selection db-record-index-selection-t))))
+  (type (struct (status-id int) (selection db-record-index-selection-t))))
 
 (pre-include "./foreign/sph/mi-list.c")
 (define db-guile-active-selections (__thread db-guile-selections-t*) 0)
@@ -67,8 +51,7 @@
         (set relation-selection
           (pointer-get (convert-type a.selection db-guile-relation-selection-t*)))
         (db-relation-selection-finish &relation-selection.selection)
-        (db-ids-free relation-selection.left)
-        (db-ids-free relation-selection.label)
+        (db-ids-free relation-selection.left) (db-ids-free relation-selection.label)
         (db-ids-free relation-selection.right) (free a.selection))
       (db-guile-selection-type-record
         (set record-selection (pointer-get (convert-type a.selection db-guile-record-selection-t*)))
@@ -86,15 +69,11 @@
   (void void* db-guile-selection-type-t)
   "add a new db-guile-selection object to db-guile-active-selections"
   status-declare
-  (declare
-    a db-guile-selections-t*
-    b db-guile-selection-t)
+  (declare a db-guile-selections-t* b db-guile-selection-t)
   (sc-comment "add db-guile-selection to linked-list")
   (set
     b.selection db-selection
     b.selection-type selection-type
     a (db-guile-selections-add db-guile-active-selections b))
   (if a (set db-guile-active-selections a)
-    (begin
-      (status-set-both db-status-group-db db-status-id-memory)
-      (scm-from-status-error status))))
+    (begin (status-set db-status-group-db db-status-id-memory) (scm-from-status-error status))))

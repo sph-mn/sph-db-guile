@@ -2,7 +2,7 @@
   "memreg registers memory in a local variable, for example to free all memory allocated at point."
   "the variables memreg_register and memreg_index will also be available."
   "usage:
-     memreg_init(4);
+     memreg_init(2);
      memreg_add(&variable-1);
      memreg_add(&variable-2);
      memreg_free;")
@@ -10,21 +10,18 @@
 (pre-define
   (memreg-init register-size)
   (begin
-    (declare
-      memreg-register (array void* (register-size))
-      memreg-index (unsigned int))
+    (declare memreg-register (array void* (register-size)) memreg-index (unsigned int))
     (set memreg-index 0))
   (memreg-add address)
   (begin
-    "add a pointer to the register. does not protect against buffer overflow"
-    (set
-      (array-get memreg-register memreg-index) address
-      memreg-index (+ 1 memreg-index)))
+    "add a pointer to the register. memreg_init must have been called
+     with sufficient size for all pointers to be added"
+    (set (array-get memreg-register memreg-index) address memreg-index (+ 1 memreg-index)))
   memreg-free
   (while memreg-index
     (sc-comment "free all currently registered pointers")
     (set memreg-index (- memreg-index 1))
-    (free (pointer-get (+ memreg-register memreg-index)))))
+    (free (array-get memreg-register memreg-index))))
 
 (sc-comment
   "the *_named variant of memreg supports multiple concurrent registers identified by name"
@@ -50,5 +47,4 @@
   (while (pre-concat memreg-index _ register-id)
     (set (pre-concat memreg-index _ register-id) (- (pre-concat memreg-index _ register-id) 1))
     (free
-      (pointer-get
-        (+ (pre-concat memreg-register _ register-id) (pre-concat memreg-index _ register-id))))))
+      (array-get (pre-concat memreg-register _ register-id) (pre-concat memreg-index _ register-id)))))

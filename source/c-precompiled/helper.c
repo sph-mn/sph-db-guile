@@ -599,7 +599,7 @@ status_t scm_to_db_ids(SCM scm_a, db_ids_t* result) {
   size_t length;
   length = scm_to_size_t((scm_length(scm_a)));
   scm_dynwind_begin(0);
-  status_require((db_ids_new(length, (&b))));
+  status_i_require((db_ids_new(length, (&b))));
   scm_dynwind_unwind_handler(free, (b.start), 0);
   while (!scm_is_null(scm_a)) {
     db_ids_add(b, (scm_to_uintmax((scm_first(scm_a)))));
@@ -690,7 +690,7 @@ status_t scm_c_to_db_record_values(db_type_t* type,
   scm_dynwind_begin(0);
   values_len = scm_to_size_t((scm_length(scm_values)));
   /* allocate memreg for field-data and values array */
-  if (values_len && memreg_heap_allocate((1 + values_len), (&allocations))) {
+  if (values_len && memreg_heap_new((1 + values_len), (&allocations))) {
     status_set_goto(status_group_db_guile, db_status_id_memory);
   };
   scm_dynwind_unwind_handler(db_guile_memreg_heap_free, (&allocations), 0);

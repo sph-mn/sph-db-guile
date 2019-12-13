@@ -396,7 +396,7 @@ SCM scm_db_record_get(SCM scm_txn, SCM scm_ids, SCM scm_match_all) {
   scm_dynwind_begin(0);
   status_require((scm_to_db_ids(scm_ids, (&ids))));
   scm_dynwind_free((ids.start));
-  status_require((db_records_new((db_ids_length(ids)), (&records))));
+  status_i_require((db_records_new((db_ids_length(ids)), (&records))));
   scm_dynwind_free((records.start));
   status_require_read((db_record_get(txn, ids, match_all, (&records))));
   result =
@@ -613,7 +613,7 @@ SCM scm_db_record_read(SCM scm_selection, SCM scm_count) {
   };
   count = scm_to_uintmax(scm_count);
   scm_dynwind_begin(0);
-  status_require((db_records_new(count, (&records))));
+  status_i_require((db_records_new(count, (&records))));
   scm_dynwind_free((records.start));
   status_require_read(
     (db_record_read((selection->selection), count, (&records))));
@@ -636,7 +636,7 @@ SCM scm_db_relation_read(SCM scm_selection, SCM scm_count) {
   };
   count = scm_to_uintmax(scm_count);
   scm_dynwind_begin(0);
-  status_require((db_relations_new(count, (&relations))));
+  status_i_require((db_relations_new(count, (&relations))));
   scm_dynwind_free((relations.start));
   status_require_read(
     (db_relation_read((&(selection->selection)), count, (&relations))));
@@ -748,7 +748,7 @@ SCM scm_db_index_read(SCM scm_selection, SCM scm_count) {
   if (!(status_id_success == selection->status_id)) {
     return (SCM_EOL);
   };
-  status_require((db_ids_new(count, (&ids))));
+  status_i_require((db_ids_new(count, (&ids))));
   status_require_read((db_index_read((selection->selection), count, (&ids))));
   scm_dynwind_unwind_handler(free, (ids.start), SCM_F_WIND_EXPLICITLY);
   selection->status_id = status.id;
@@ -801,7 +801,7 @@ SCM scm_db_record_index_read(SCM scm_selection, SCM scm_count) {
   if (!(status_id_success == selection->status_id)) {
     return (SCM_EOL);
   };
-  status_require((db_records_new(count, (&records))));
+  status_i_require((db_records_new(count, (&records))));
   status_require_read(
     (db_record_index_read((selection->selection), count, (&records))));
   scm_dynwind_unwind_handler(free, (records.start), SCM_F_WIND_EXPLICITLY);

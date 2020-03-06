@@ -4,7 +4,7 @@
     (rnrs bytevectors)
     (sph list)
     (sph alist)
-    (only (srfi srfi-1) lset-difference lset-intersection)
+    (only (srfi srfi-1) every lset-difference any)
     (test helper sph db))
 
   (define-test (db-env env)
@@ -236,9 +236,12 @@
                     (db-relation-read (db-relation-select txn left right label ordinal) (* 2 count)))))))))))
 
   (define-procedure-tests tests (db-relation-delete)
-    (db-record-delete) (db-record-index-select)
-    (db-index-select) (db-record-update)
-    (db-record-create) (db-record-select)
+    (db-record-delete)
+    (db-record-index-select)
+    (db-record-update)
+    (db-index-select)
+    (db-record-create)
+    (db-record-select)
     (db-statistics) (db-record-virtual)
     (db-other) (db-relation-ensure) (db-relation-select) (db-type) (db-index) (db-env) (db-txn))
 

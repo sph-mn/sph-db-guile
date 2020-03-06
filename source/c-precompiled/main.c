@@ -1,5 +1,6 @@
 /* sph-db-guile registers scheme procedures that when called execute specific
  * c-functions that manage calls to sph-db */
+#include <string.h>
 #include <libguile.h>
 #include <sph-db.h>
 #include <sph-db-extra.h>

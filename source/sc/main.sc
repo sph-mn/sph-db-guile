@@ -1,7 +1,7 @@
 (sc-comment
   "sph-db-guile registers scheme procedures that when called execute specific c-functions that manage calls to sph-db")
 
-(pre-include "libguile.h" "sph-db.h"
+(pre-include "string.h" "libguile.h" "sph-db.h"
   "sph-db-extra.h" "./foreign/sph/helper.c" "./foreign/sph/guile.c"
   "./foreign/sph/memreg.c" "./foreign/sph/memreg-heap.c" "./helper.c")
 

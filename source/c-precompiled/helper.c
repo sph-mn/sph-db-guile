@@ -1,3 +1,4 @@
+
 /* bindings that arent part of the exported scheme api and debug features.
 separate file because it is easier to start from the exported features */
 enum {
@@ -113,6 +114,7 @@ define_scm_from_db_relations_retrieve(left)
   define_scm_from_db_relations_retrieve(right)
     define_scm_from_db_relations_retrieve(label)
       define_scm_from_db_relations_retrieve(ordinal)
+
   /** get a db-field by either a field offset integer or field name string */
   status_t
   scm_to_field_offset(SCM scm_a, db_type_t* type, db_fields_len_t* result) {
@@ -134,6 +136,7 @@ define_scm_from_db_relations_retrieve(left)
 exit:
   return (status);
 }
+
 /** memory for result is handled by gc */
 status_t scm_to_field_offsets(SCM scm_type,
   SCM scm_fields,
@@ -159,6 +162,7 @@ status_t scm_to_field_offsets(SCM scm_type,
 exit:
   return (status);
 }
+
 /** get the description if available for a status */
 uint8_t* db_guile_status_description(status_t a) {
   char* b;
@@ -177,6 +181,7 @@ uint8_t* db_guile_status_description(status_t a) {
   };
   return (((uint8_t*)(b)));
 }
+
 /** get the name if available for a status */
 uint8_t* db_guile_status_name(status_t a) {
   char* b;
@@ -195,6 +200,7 @@ uint8_t* db_guile_status_name(status_t a) {
   };
   return (((uint8_t*)(b)));
 }
+
 /** float32 not supported by guile */
 db_field_type_t scm_to_db_field_type(SCM a) {
   if (scm_is_eq(scm_symbol_string8, a)) {
@@ -338,6 +344,7 @@ SCM scm_from_db_field_type(db_field_type_t a) {
     return (SCM_BOOL_F);
   };
 }
+
 /** -> ((key . value) ...) */
 SCM scm_from_mdb_stat(MDB_stat a) {
   SCM b;
@@ -359,6 +366,7 @@ SCM scm_from_mdb_stat(MDB_stat a) {
     b);
   return (b);
 }
+
 /** db-index-t* -> SCM:((field-offset . field-name) ...) */
 SCM scm_from_db_index_fields(db_index_t* a) {
   db_field_t field;
@@ -565,6 +573,7 @@ exit:
   scm_dynwind_end();
   return (status);
 }
+
 /** convert an scm value to the format that will be used to for insert.
   result-data has to be freed by the caller only if result-needs-free is true.
   checks if the size of the data fits the field size */
@@ -592,6 +601,7 @@ status_t scm_to_field_data(SCM scm_a,
 exit:
   return (status);
 }
+
 /** this routine allocates result and passes ownership to the caller */
 status_t scm_to_db_ids(SCM scm_a, db_ids_t* result) {
   status_declare;
@@ -670,6 +680,7 @@ db_guile_record_matcher(db_type_t* type, db_record_t record, void* state) {
   *((SCM*)(state)) = scm_cons(scm_matcher, (scm_tail(scm_result)));
   return ((scm_to_bool((scm_first(scm_result)))));
 }
+
 /** "free" compatible memreg-heap-free for use in scm-dynwind-unwind-handler */
 void db_guile_memreg_heap_free(void* a) {
   memreg_heap_free((*((memreg_register_t*)(a))));

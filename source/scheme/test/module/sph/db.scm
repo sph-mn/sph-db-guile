@@ -73,8 +73,6 @@
                                   (map-with-index (l (index a) (and a (pair index a)))
                                     (vector->list (db-record->vector type-1 a)))))
                               records)))
-                        ; check that all inserted values exist in the read values.
-                        ; some extra values may have been read from unset fields (set to zero or something)
                         (every
                           (l (values)
                             (any
@@ -120,10 +118,10 @@
   (define-test (db-record-virtual env)
     "float currently not supported as guile only supports 64 bit float which dont fit in ids"
     (let*
-      ( (type-uint (db-type-create env "vtype-uint" (list-q uint16f) db-type-flag-virtual))
-        (type-int (db-type-create env "vtype-int" (list-q int8f) db-type-flag-virtual))
-        (type-string (db-type-create env "vtype-string16f" (list-q string8f) db-type-flag-virtual))
-        (type-binary (db-type-create env "vtype-binary16f" (list-q binary8f) db-type-flag-virtual)))
+      ( (type-uint (db-type-create env "vtype-uint" (q (uint16f)) db-type-flag-virtual))
+        (type-int (db-type-create env "vtype-int" (q (int8f)) db-type-flag-virtual))
+        (type-string (db-type-create env "vtype-string16f" (q (string8f)) db-type-flag-virtual))
+        (type-binary (db-type-create env "vtype-binary16f" (q (binary8f)) db-type-flag-virtual)))
       (assert-and (every db-type-virtual? (list type-uint type-int type-string type-binary))
         (every
           (l (a)
@@ -145,22 +143,18 @@
               (null?
                 (lset-difference
                   (l (a b) (if (= (first a) (first b)) (equal? (tail a) (tail b)) #t)) old new))))))
-      ; create record
       (test-helper-type-create-1 env
         (l (type-name type-1-fields type-1)
           (let
-            ( (values-old (list-q (0 . -123) (1 . 123) (3 . 1.23) (4 . "123")))
-              (values-new (list-q (0 . 1) (1 . 2) (3 . 4.5) (4 . "3"))))
+            ( (values-old (q ((0 . -123) (1 . 123) (3 . 1.23) (4 . "123"))))
+              (values-new (q ((0 . 1) (1 . 2) (3 . 4.5) (4 . "3")))))
             (db-txn-call-write env
               (l (txn) (list type-1 (db-record-create txn type-1 values-old) values-old values-new))))))))
 
   (define-test (db-index-select env)
     (let ((index-fields-1 (list 0 1)) (index-fields-2 (list 0 4)))
       (test-helper-type-create-1 env
-        (l (type-name type-fields type)
-          ; create index without previously existing records
-          (db-index-create env type index-fields-1)
-          ; create index with previously existing records
+        (l (type-name type-fields type) (db-index-create env type index-fields-1)
           (test-helper-records-create-2 2 env
             type
             (l (ids-and-values)
@@ -207,9 +201,7 @@
                       (l (txn)
                         (and (not (null? (db-record-get txn ids)))
                           (begin (db-record-delete txn ids) (null? (db-record-get txn ids))
-                            (begin
-                              ; call without records
-                              (db-record-delete-type txn (db-type-id type)) #t)))))))))
+                            (begin (db-record-delete-type txn (db-type-id type)) #t)))))))))
             (assert-true "record-delete-type"
               (test-helper-records-create-2 common-element-count env
                 type
@@ -236,12 +228,9 @@
                     (db-relation-read (db-relation-select txn left right label ordinal) (* 2 count)))))))))))
 
   (define-procedure-tests tests (db-relation-delete)
-    (db-record-delete)
-    (db-record-index-select)
-    (db-record-update)
-    (db-index-select)
-    (db-record-create)
-    (db-record-select)
+    (db-record-delete) (db-record-index-select)
+    (db-record-update) (db-index-select)
+    (db-record-create) (db-record-select)
     (db-statistics) (db-record-virtual)
     (db-other) (db-relation-ensure) (db-relation-select) (db-type) (db-index) (db-env) (db-txn))
 

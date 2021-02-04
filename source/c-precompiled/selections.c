@@ -1,6 +1,8 @@
+
 /* generic db-selection type with the option to carry data to be freed when the
   selection isnt needed anymore. db-guile-selection-t is the list element type
 */
+
 #define db_guile_selections_first mi_list_first
 #define db_guile_selections_rest mi_list_rest
 #define mi_list_name_prefix db_guile_selections
@@ -75,6 +77,7 @@ void db_guile_selections_free() {
       db_guile_selections_drop(db_guile_active_selections);
   };
 }
+
 /** add a new db-guile-selection object to db-guile-active-selections */
 void db_guile_selection_register(void* db_selection,
   db_guile_selection_type_t selection_type) {

@@ -1,5 +1,5 @@
 (define-module (sph db))
-(use-modules (sph) (sph exception) (sph record) (sph vector))
+(use-modules (sph) (sph exception) (sph vector))
 
 (export db-close db-env-format
   db-env-maxkeysize db-env-open?
@@ -18,18 +18,18 @@
   db-record-virtual db-record-virtual-data
   db-record.index-read db-relation-delete
   db-relation-ensure db-relation-field-names
-  db-relation-label db-relation-layout
-  db-relation-left db-relation-ordinal
-  db-relation-read db-relation-right
-  db-relation-select db-selection?
-  db-statistics db-status-description
-  db-status-group-id->name db-txn-abort
-  db-txn-active? db-txn-begin
-  db-txn-call-read db-txn-call-write
-  db-txn-commit db-txn-write-begin
-  db-type-create db-type-delete
-  db-type-fields db-type-flag-virtual
-  db-type-flags db-type-get db-type-id db-type-indices db-type-name db-type-virtual? db-use db-use-p)
+  db-relation-label db-relation-left
+  db-relation-ordinal db-relation-read
+  db-relation-right db-relation-select
+  db-selection? db-statistics
+  db-status-description db-status-group-id->name
+  db-txn-abort db-txn-active?
+  db-txn-begin db-txn-call-read
+  db-txn-call-write db-txn-commit
+  db-txn-write-begin db-type-create
+  db-type-delete db-type-fields
+  db-type-flag-virtual db-type-flags
+  db-type-get db-type-id db-type-indices db-type-name db-type-virtual? db-use db-use-p)
 
 (define sph-db-description
   "bindings to use sph-db.
@@ -40,10 +40,10 @@
 
 (load-extension "libguile-sph-db" "db_guile_init")
 (define db-relation-field-names (q (left right label ordinal)))
-(define db-relation-layout (make-record-layout db-relation-field-names))
-
-(define-record-accessors db-relation-layout (db-relation-left (q left))
-  (db-relation-right (q right)) (db-relation-label (q label)) (db-relation-ordinal (q ordinal)))
+(define db-relation-left (vector-accessor 0))
+(define db-relation-right (vector-accessor 0))
+(define db-relation-label (vector-accessor 0))
+(define db-relation-orginal (vector-accessor 0))
 
 (define (db-use-p root options c) "string ((key . value) ...) procedure:{db-env -> any} -> any"
   (let (env (db-open root options)) (exception-always (db-close env) (c env))))

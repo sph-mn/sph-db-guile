@@ -1,3 +1,4 @@
+
 /* sph-db-guile registers scheme procedures that when called execute specific
  * c-functions that manage calls to sph-db */
 #include <string.h>
@@ -157,6 +158,7 @@ SCM scm_db_txn_abort(SCM scm_txn) {
   scm_foreign_object_set_x(scm_txn, 0, 0);
   return (SCM_UNSPECIFIED);
 }
+
 /** note that commit frees cursors. db-guile-selections-free closes cursors.
   if db-guile-selections-free is called after db-txn-commit a double free occurs
 */
@@ -406,6 +408,7 @@ SCM scm_db_record_get(SCM scm_txn, SCM scm_ids, SCM scm_match_all) {
 exit:
   scm_from_status_dynwind_end_return(result);
 }
+
 /** modifies result-ordinal.
   returns ordinal pointer on success, null pointer on failure */
 db_ordinal_condition_t*
@@ -598,6 +601,7 @@ SCM scm_db_record_to_vector(SCM scm_type, SCM scm_record) {
   };
   return (result);
 }
+
 /** allow multiple calls by tracking the record-select return status and
   eventually not calling record-select again */
 SCM scm_db_record_read(SCM scm_selection, SCM scm_count) {
@@ -874,6 +878,7 @@ SCM scm_db_relation_delete(SCM scm_txn,
 exit:
   scm_from_status_dynwind_end_return(SCM_UNSPECIFIED);
 }
+
 /** prepare scm values and register guile bindings */
 void db_guile_init() {
   SCM type_slots;

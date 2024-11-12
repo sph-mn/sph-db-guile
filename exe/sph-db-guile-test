@@ -1,0 +1,10 @@
+#!/usr/bin/guile
+!#
+
+(import (sph) (sph test))
+
+(setenv "MALLOC_CHECK_" "2")
+
+(test-execute-modules-by-prefix #:settings
+  (test-settings-default-custom path-search "/usr/share/guile/site" reporter-name (q compact))
+  (q (test module sph db)))

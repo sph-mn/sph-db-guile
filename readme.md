@@ -1,11 +1,11 @@
 guile scheme bindings for the database [sph-db](https://github.com/sph-mn/sph-db).
 
-status: should work
+status: all tests pass, and the library is expected to work - feedback is appreciated. however, it has not yet undergone extensive use, so additional testing is encouraged.
 
 # dependencies
 * run-time
   * [sph-db](https://github.com/sph-mn/sph-db) (gpl3+)
-  * guile >= 2
+  * guile >= 3  (2 may still work but was not verified)
 * quick build
   * gcc and shell for the provided compile script
 * development build
@@ -36,7 +36,7 @@ installed will be
 # usage
 to load the bindings
 ```
-(import (sph db))
+(use-modules (sph db))
 ```
 
 ## select a database

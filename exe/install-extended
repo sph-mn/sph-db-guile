@@ -6,5 +6,5 @@
 (import (sph install))
 
 (install-cli
-  (system-libraries "temp/libguile-sph-db.so")
+  (system-libraries "tmp/libguile-sph-db.so")
   (guile-site-modules "source/scheme/sph" "source/scheme/test"))
